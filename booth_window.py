@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QImage, QPixmap
 from photo_capture_thread import PhotoCaptureThread
-from mustache_effect import MustacheEffect
+from face_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect
 from printer import DNPPrinter
 
 class CowboyBooth(QMainWindow):
@@ -30,8 +30,10 @@ class CowboyBooth(QMainWindow):
         self.capture_button.clicked.connect(self.start_photo_capture)
         layout.addWidget(self.capture_button)
 
-        # Initialize mustache effect
+        # Initialize effects
         self.mustache_effect = MustacheEffect()
+        self.bolo_tie_effect = BoloTieEffect()
+        self.cowboy_hat_effect = CowboyHatEffect()
 
         # Initialize printer
         self.printer = DNPPrinter()
@@ -85,9 +87,12 @@ class CowboyBooth(QMainWindow):
     def capture_photo(self):
         ret, frame = self.cap.read()
         if ret:
-            # Apply mustache to the saved photo
-            frame_with_mustache = self.mustache_effect.apply_mustache(frame.copy())
-            self.captured_frames.append(frame_with_mustache)
+            # Apply all effects to the saved photo
+            frame_with_effects = frame.copy()
+            frame_with_effects = self.mustache_effect.apply_effect(frame_with_effects)
+            frame_with_effects = self.bolo_tie_effect.apply_effect(frame_with_effects)
+            frame_with_effects = self.cowboy_hat_effect.apply_effect(frame_with_effects)
+            self.captured_frames.append(frame_with_effects)
             self.photo_count += 1
             # Start flash, but do NOT start the next countdown here
             self.start_flash()
@@ -151,8 +156,10 @@ class CowboyBooth(QMainWindow):
         if not ret:
             return
 
-        # Apply mustache to the preview
-        frame = self.mustache_effect.apply_mustache(frame)
+        # Apply all effects to the preview
+        frame = self.mustache_effect.apply_effect(frame)
+        frame = self.bolo_tie_effect.apply_effect(frame)
+        frame = self.cowboy_hat_effect.apply_effect(frame)
 
         # Display countdown and photo count on the frame
         if self.countdown > 0:
