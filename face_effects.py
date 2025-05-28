@@ -103,7 +103,7 @@ class BoloTieEffect(FaceEffect):
         jaw_right = face_landmarks.landmark[454]
         x1, y1 = int(jaw_left.x * w), int(jaw_left.y * h)
         x2, y2 = int(jaw_right.x * w), int(jaw_right.y * h)
-        width = int(0.45 * math.hypot(x2 - x1, y2 - y1))  # Larger bolo tie
+        width = int(1.0 * math.hypot(x2 - x1, y2 - y1))  # Much larger bolo tie
         height = int(width * self.effect_image.shape[0] / self.effect_image.shape[1])
         angle = -math.degrees(math.atan2(y2 - y1, x2 - x1))
         cx = int(chin.x * w)
