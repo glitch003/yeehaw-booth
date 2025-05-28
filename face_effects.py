@@ -149,9 +149,9 @@ class BackgroundReplacementEffect(FaceEffect):
 
     def load_effect_image(self):
         """Load the background image."""
-        self.background_image = cv2.imread('background.jpg')
+        self.background_image = cv2.imread('background.png')
         if self.background_image is None:
-            raise FileNotFoundError("background.jpg not found. Please ensure the file exists.")
+            raise FileNotFoundError("background.png not found. Please ensure the file exists.")
 
     def get_effect_position(self, face_landmarks, frame_shape):
         """Not used for background replacement."""
