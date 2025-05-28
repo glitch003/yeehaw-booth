@@ -136,4 +136,45 @@ class CowboyHatEffect(FaceEffect):
         cy = int(top.y * h) - height // 1  # Move hat higher
         x = cx - width // 2
         y = cy - height // 2
-        return x, y, width, height, angle 
+        return x, y, width, height, angle
+
+class BackgroundReplacementEffect(FaceEffect):
+    def __init__(self):
+        super().__init__()
+        # Initialize MediaPipe Selfie Segmentation
+        self.mp_selfie_segmentation = mp.solutions.selfie_segmentation
+        self.selfie_segmentation = self.mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
+        self.background_image = None
+        self.load_effect_image()
+
+    def load_effect_image(self):
+        """Load the background image."""
+        self.background_image = cv2.imread('background.jpg')
+        if self.background_image is None:
+            raise FileNotFoundError("background.jpg not found. Please ensure the file exists.")
+
+    def get_effect_position(self, face_landmarks, frame_shape):
+        """Not used for background replacement."""
+        return 0, 0, 0, 0, 0
+
+    def apply_effect(self, frame):
+        """Replace the background with the loaded background image."""
+        # Convert frame to RGB for processing
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Get segmentation results
+        results = self.selfie_segmentation.process(rgb_frame)
+        
+        # Create a mask from the segmentation results
+        mask = results.segmentation_mask > 0.1
+        
+        # Resize background to match frame size
+        background = cv2.resize(self.background_image, (frame.shape[1], frame.shape[0]))
+        
+        # Create a 3-channel mask
+        mask_3d = np.stack([mask] * 3, axis=-1)
+        
+        # Combine the frame and background using the mask
+        output = np.where(mask_3d, frame, background)
+        
+        return output.astype(np.uint8) 

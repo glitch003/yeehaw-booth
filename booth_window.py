@@ -2,11 +2,11 @@ import cv2
 import os
 import datetime
 import numpy as np
-from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QMessageBox
+from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QMessageBox, QHBoxLayout
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QImage, QPixmap
 from photo_capture_thread import PhotoCaptureThread
-from face_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect
+from face_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect
 from printer import DNPPrinter
 
 class CowboyBooth(QMainWindow):
@@ -25,15 +25,28 @@ class CowboyBooth(QMainWindow):
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.image_label)
 
+        # Create button layout
+        button_layout = QHBoxLayout()
+        
         # Create button to take photos
         self.capture_button = QPushButton("Take Photos", self)
         self.capture_button.clicked.connect(self.start_photo_capture)
-        layout.addWidget(self.capture_button)
+        button_layout.addWidget(self.capture_button)
+
+        # Create button to toggle background replacement
+        self.bg_toggle_button = QPushButton("Toggle Background", self)
+        self.bg_toggle_button.clicked.connect(self.toggle_background)
+        self.bg_toggle_button.setCheckable(True)
+        button_layout.addWidget(self.bg_toggle_button)
+
+        layout.addLayout(button_layout)
 
         # Initialize effects
         self.mustache_effect = MustacheEffect()
         self.bolo_tie_effect = BoloTieEffect()
         self.cowboy_hat_effect = CowboyHatEffect()
+        self.background_effect = BackgroundReplacementEffect()
+        self.background_enabled = False
 
         # Initialize printer
         self.printer = DNPPrinter()
@@ -87,6 +100,10 @@ class CowboyBooth(QMainWindow):
     def capture_photo(self):
         ret, frame = self.cap.read()
         if ret:
+            # Apply background replacement if enabled
+            if self.background_enabled:
+                frame = self.background_effect.apply_effect(frame)
+                
             # Apply all effects to the saved photo
             frame_with_effects = frame.copy()
             frame_with_effects = self.mustache_effect.apply_effect(frame_with_effects)
@@ -151,10 +168,19 @@ class CowboyBooth(QMainWindow):
         self.capture_button.setText("Take Photos")
         self.capture_button.setEnabled(True)
 
+    def toggle_background(self):
+        """Toggle the background replacement effect."""
+        self.background_enabled = not self.background_enabled
+        self.bg_toggle_button.setChecked(self.background_enabled)
+
     def update_frame(self):
         ret, frame = self.cap.read()
         if not ret:
             return
+
+        # Apply background replacement if enabled
+        if self.background_enabled:
+            frame = self.background_effect.apply_effect(frame)
 
         # Apply all effects to the preview
         frame = self.mustache_effect.apply_effect(frame)
