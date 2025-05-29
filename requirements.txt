@@ -3,4 +3,5 @@ numpy>=1.24.0
 PyQt6>=6.4.0
 mediapipe>=0.10.0
 Pillow>=10.0.0
-pycups>=2.0.1 
+pywin32>=306
+# pycups>=2.0.1  # Temporarily commented out - requires Visual C++ Build Tools 
