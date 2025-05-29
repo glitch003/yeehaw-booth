@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QImage, QPixmap
 from photo_capture_thread import PhotoCaptureThread
-from face_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect
+from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect
 from printer import DNPPrinter
 
 class CowboyBooth(QMainWindow):
