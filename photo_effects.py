@@ -4,6 +4,14 @@ import numpy as np
 from abc import ABC, abstractmethod
 import math
 
+# Effect configuration
+EFFECT_CONFIG = {
+    'mustache_enabled': True,
+    'bolo_tie_enabled': True,
+    'cowboy_hat_enabled': True,
+    'background_enabled': False
+}
+
 class FaceEffect(ABC):
     def __init__(self):
         # Initialize MediaPipe Face Mesh
@@ -27,6 +35,11 @@ class FaceEffect(ABC):
         """Calculate the position for the effect. Should be implemented by subclasses."""
         pass
 
+    @abstractmethod
+    def is_enabled(self):
+        """Check if this effect is enabled in the configuration."""
+        pass
+
     def overlay_effect(self, frame, x, y, width, height, angle=0):
         """Overlay the effect image on the frame at the specified position."""
         if width <= 0 or height <= 0:
@@ -45,6 +58,9 @@ class FaceEffect(ABC):
 
     def apply_effect(self, frame):
         """Apply the effect to all detected faces in the frame."""
+        if not self.is_enabled():
+            return frame
+            
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(rgb_frame)
 
@@ -61,6 +77,9 @@ class FaceEffect(ABC):
         return frame
 
 class MustacheEffect(FaceEffect):
+    def is_enabled(self):
+        return EFFECT_CONFIG['mustache_enabled']
+
     def load_effect_image(self):
         self.effect_image = cv2.imread('mustache.png', cv2.IMREAD_UNCHANGED)
         if self.effect_image is None:
@@ -88,6 +107,9 @@ class MustacheEffect(FaceEffect):
         return x, y, width, height, angle
 
 class BoloTieEffect(FaceEffect):
+    def is_enabled(self):
+        return EFFECT_CONFIG['bolo_tie_enabled']
+
     def load_effect_image(self):
         self.effect_image = cv2.imread('bolo_tie.png', cv2.IMREAD_UNCHANGED)
         if self.effect_image is None:
@@ -113,6 +135,9 @@ class BoloTieEffect(FaceEffect):
         return x, y, width, height, angle
 
 class CowboyHatEffect(FaceEffect):
+    def is_enabled(self):
+        return EFFECT_CONFIG['cowboy_hat_enabled']
+
     def load_effect_image(self):
         self.effect_image = cv2.imread('cowboy_hat.png', cv2.IMREAD_UNCHANGED)
         if self.effect_image is None:
@@ -147,6 +172,9 @@ class BackgroundReplacementEffect(FaceEffect):
         self.background_image = None
         self.load_effect_image()
 
+    def is_enabled(self):
+        return EFFECT_CONFIG['background_enabled']
+
     def load_effect_image(self):
         """Load the background image."""
         self.background_image = cv2.imread('background.png')
@@ -159,6 +187,9 @@ class BackgroundReplacementEffect(FaceEffect):
 
     def apply_effect(self, frame):
         """Replace the background with the loaded background image."""
+        if not self.is_enabled():
+            return frame
+            
         # Convert frame to RGB for processing
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QImage, QPixmap
 from photo_capture_thread import PhotoCaptureThread
-from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect
+from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
 class CowboyBooth(QMainWindow):
@@ -33,11 +33,30 @@ class CowboyBooth(QMainWindow):
         self.capture_button.clicked.connect(self.start_photo_capture)
         button_layout.addWidget(self.capture_button)
 
-        # Create button to toggle background replacement
-        self.bg_toggle_button = QPushButton("Toggle Background", self)
-        self.bg_toggle_button.clicked.connect(self.toggle_background)
-        self.bg_toggle_button.setCheckable(True)
-        button_layout.addWidget(self.bg_toggle_button)
+        # Create buttons to toggle effects
+        self.mustache_button = QPushButton("Mustache", self)
+        self.mustache_button.clicked.connect(lambda: self.toggle_effect('mustache_enabled'))
+        self.mustache_button.setCheckable(True)
+        self.mustache_button.setChecked(EFFECT_CONFIG['mustache_enabled'])
+        button_layout.addWidget(self.mustache_button)
+
+        self.bolo_tie_button = QPushButton("Bolo Tie", self)
+        self.bolo_tie_button.clicked.connect(lambda: self.toggle_effect('bolo_tie_enabled'))
+        self.bolo_tie_button.setCheckable(True)
+        self.bolo_tie_button.setChecked(EFFECT_CONFIG['bolo_tie_enabled'])
+        button_layout.addWidget(self.bolo_tie_button)
+
+        self.cowboy_hat_button = QPushButton("Cowboy Hat", self)
+        self.cowboy_hat_button.clicked.connect(lambda: self.toggle_effect('cowboy_hat_enabled'))
+        self.cowboy_hat_button.setCheckable(True)
+        self.cowboy_hat_button.setChecked(EFFECT_CONFIG['cowboy_hat_enabled'])
+        button_layout.addWidget(self.cowboy_hat_button)
+
+        self.background_button = QPushButton("Background", self)
+        self.background_button.clicked.connect(lambda: self.toggle_effect('background_enabled'))
+        self.background_button.setCheckable(True)
+        self.background_button.setChecked(EFFECT_CONFIG['background_enabled'])
+        button_layout.addWidget(self.background_button)
 
         layout.addLayout(button_layout)
 
@@ -46,7 +65,6 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_effect = BoloTieEffect()
         self.cowboy_hat_effect = CowboyHatEffect()
         self.background_effect = BackgroundReplacementEffect()
-        self.background_enabled = False
 
         # Initialize printer
         self.printer = DNPPrinter()
@@ -77,6 +95,14 @@ class CowboyBooth(QMainWindow):
         if not os.path.exists(self.photos_dir):
             os.makedirs(self.photos_dir)
 
+    def toggle_effect(self, effect_name):
+        """Toggle an effect on/off and update the button state."""
+        EFFECT_CONFIG[effect_name] = not EFFECT_CONFIG[effect_name]
+        # Convert effect_name to button name (e.g., 'cowboy_hat_enabled' -> 'cowboy_hat_button')
+        button_name = effect_name.replace('_enabled', '_button')
+        button = getattr(self, button_name)
+        button.setChecked(EFFECT_CONFIG[effect_name])
+
     def start_photo_capture(self):
         self.capture_button.setEnabled(False)
         self.countdown = 3
@@ -100,12 +126,9 @@ class CowboyBooth(QMainWindow):
     def capture_photo(self):
         ret, frame = self.cap.read()
         if ret:
-            # Apply background replacement if enabled
-            if self.background_enabled:
-                frame = self.background_effect.apply_effect(frame)
-                
             # Apply all effects to the saved photo
             frame_with_effects = frame.copy()
+            frame_with_effects = self.background_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.mustache_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.bolo_tie_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.cowboy_hat_effect.apply_effect(frame_with_effects)
@@ -168,21 +191,13 @@ class CowboyBooth(QMainWindow):
         self.capture_button.setText("Take Photos")
         self.capture_button.setEnabled(True)
 
-    def toggle_background(self):
-        """Toggle the background replacement effect."""
-        self.background_enabled = not self.background_enabled
-        self.bg_toggle_button.setChecked(self.background_enabled)
-
     def update_frame(self):
         ret, frame = self.cap.read()
         if not ret:
             return
 
-        # Apply background replacement if enabled
-        if self.background_enabled:
-            frame = self.background_effect.apply_effect(frame)
-
         # Apply all effects to the preview
+        frame = self.background_effect.apply_effect(frame)
         frame = self.mustache_effect.apply_effect(frame)
         frame = self.bolo_tie_effect.apply_effect(frame)
         frame = self.cowboy_hat_effect.apply_effect(frame)
