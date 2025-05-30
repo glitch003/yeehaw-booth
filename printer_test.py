@@ -5,6 +5,7 @@ from PIL import Image
 import traceback
 import img2pdf
 import subprocess
+from PIL import ImageDraw, ImageFont
 
 def get_printer_info(printer_name):
     """Get detailed information about a specific printer"""
@@ -131,12 +132,41 @@ def resize_image_for_printing(image_path, printer_name):
             # Create a new white background image at the target size
             background = Image.new('RGB', (target_width, target_height), 'white')
             
-            # Calculate position to center the image
-            x = (target_width - img.width) // 2
-            y = (target_height - img.height) // 2
+            # Calculate position to place image at the top
+            x = (target_width - img.width) // 2  # Center horizontally
+            y = 0  # Place at the top
             
             # Paste the resized image onto the white background
             background.paste(img, (x, y))
+            
+            # Add text at the bottom
+            draw = ImageDraw.Draw(background)
+            
+            # Try to load a font, fall back to default if not available
+            try:
+                font = ImageFont.truetype("arial.ttf", 72)  # Adjust size as needed
+            except:
+                font = ImageFont.load_default()
+            
+            # Text to add
+            text = "Law and Disorder\nBig Stick 2025"
+            
+            # Calculate text position for both strips
+            text_bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+            
+            # Calculate strip widths
+            strip_width = target_width // 2
+            
+            # Draw text on left strip
+            left_text_x = (strip_width - text_width) // 2
+            text_y = target_height - text_height - 50  # 50 pixels from bottom
+            draw.text((left_text_x, text_y), text, fill='black', font=font)
+            
+            # Draw text on right strip
+            right_text_x = strip_width + (strip_width - text_width) // 2
+            draw.text((right_text_x, text_y), text, fill='black', font=font)
             
             # Save the resized image
             resized_path = os.path.splitext(image_path)[0] + '_resized.jpg'
