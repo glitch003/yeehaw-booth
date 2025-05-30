@@ -326,8 +326,8 @@ def convert_to_pdf(image_path):
             # Create a layout function that forces 4x6 inch size
             def layout_fun(img_width, img_height, img_rotation):
                 # Convert inches to points (1 inch = 72 points)
-                page_width = 4 * 72  # 4 inches
-                page_height = 6 * 72  # 6 inches
+                page_width = 4.09 * 72  # 4 inches
+                page_height = 6.15 * 72  # 6 inches
                 return (page_width, page_height, page_width, page_height)
             
             f.write(img2pdf.convert(image_path, layout_fun=layout_fun))
