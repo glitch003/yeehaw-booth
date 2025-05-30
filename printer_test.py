@@ -235,8 +235,15 @@ def print_with_gsprint(pdf_path):
             print(f"Error: gswin64.exe not found at {gswin64_path}")
             return False
             
-        # Construct the command
-        cmd = [gsprint_path, "-ghostscript", gswin64_path, pdf_path]
+        # Construct the command with color mode parameters
+        cmd = [
+            gsprint_path,
+            "-ghostscript", gswin64_path,
+            "-color",  # Enable color printing
+            "-dUseCIEColor=true",  # Use CIE color space
+            "-dProcessColorModel=/DeviceRGB",  # Use RGB color model
+            pdf_path
+        ]
         
         # Execute the command
         print(f"Executing: {' '.join(cmd)}")
