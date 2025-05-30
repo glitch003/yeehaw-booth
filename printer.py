@@ -2,6 +2,9 @@ import os
 import win32print
 import win32api
 from PIL import Image
+import img2pdf
+import subprocess
+import traceback
 
 class DNPPrinter:
     def __init__(self):
@@ -23,6 +26,57 @@ class DNPPrinter:
             print("DNP printer not found in system printers. Using default printer.")
             self.printer_name = win32print.GetDefaultPrinter()
             print(f"Default printer: {self.printer_name}")
+
+    def convert_to_pdf(self, image_path):
+        """Convert an image to PDF"""
+        try:
+            # Create PDF filename
+            pdf_path = os.path.splitext(image_path)[0] + '.pdf'
+            
+            # Convert image to PDF
+            with open(pdf_path, "wb") as f:
+                f.write(img2pdf.convert(image_path))
+                
+            print(f"Converted {image_path} to {pdf_path}")
+            return pdf_path
+        except Exception as e:
+            print(f"Error converting to PDF: {str(e)}")
+            print(traceback.format_exc())
+            return None
+
+    def print_with_gsprint(self, pdf_path):
+        """Print a PDF file using gsprint"""
+        try:
+            # Get the path to gsprint.exe
+            gsprint_path = r"C:\Program Files\Ghostgum\gsview\gsprint.exe"
+            gswin64_path = r"C:\Program Files\gs\gs10.05.1\bin\gswin64.exe"
+            
+            if not os.path.exists(gsprint_path):
+                print(f"Error: gsprint.exe not found at {gsprint_path}")
+                return False
+                
+            if not os.path.exists(gswin64_path):
+                print(f"Error: gswin64.exe not found at {gswin64_path}")
+                return False
+                
+            # Construct the command
+            cmd = [gsprint_path, "-ghostscript", gswin64_path, pdf_path]
+            
+            # Execute the command
+            print(f"Executing: {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                print("Print job submitted successfully!")
+                return True
+            else:
+                print(f"Error printing: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            print(f"Error during printing: {str(e)}")
+            print(traceback.format_exc())
+            return False
 
     def print_strip(self, image_path):
         """
@@ -51,30 +105,20 @@ class DNPPrinter:
             print(f"Attempting to print using printer: {self.printer_name}")
             print(f"Printing file: {temp_path}")
             
-            # Get printer handle
-            printer_handle = win32print.OpenPrinter(self.printer_name)
-            try:
-                # Start a print job
-                job = win32print.StartDocPrinter(printer_handle, 1, ("Photo Strip", None, "RAW"))
-                try:
-                    win32print.StartPagePrinter(printer_handle)
-                    # Read the file in binary mode
-                    with open(temp_path, 'rb') as f:
-                        data = f.read()
-                    # Write the data to the printer
-                    win32print.WritePrinter(printer_handle, data)
-                    win32print.EndPagePrinter(printer_handle)
-                finally:
-                    win32print.EndDocPrinter(printer_handle)
-            finally:
-                win32print.ClosePrinter(printer_handle)
+            # Convert to PDF
+            pdf_path = self.convert_to_pdf(temp_path)
+            if not pdf_path:
+                raise Exception("Failed to convert image to PDF")
+            
+            # Print using gsprint
+            success = self.print_with_gsprint(pdf_path)
+            if not success:
+                raise Exception("Failed to print using gsprint")
                 
             print(f"Print job submitted to: {self.printer_name}")
             return True
         except Exception as e:
             print(f"Error printing: {str(e)}")
-            # Print more detailed error information
-            import traceback
             print("Detailed error:")
             print(traceback.format_exc())
             return False 
