@@ -139,6 +139,22 @@ def resize_image_for_printing(image_path, printer_name):
             # Paste the resized image onto the white background
             background.paste(img, (x, y))
             
+            # Load and resize QR code
+            qr_path = os.path.join(os.path.dirname(os.path.dirname(image_path)), "qr-code.png")
+            if not os.path.exists(qr_path):
+                raise FileNotFoundError(f"QR code not found at {qr_path}")
+                
+            qr_img = Image.open(qr_path)
+            if qr_img.mode != 'RGB':
+                qr_img = qr_img.convert('RGB')
+            
+            # Calculate QR code size (about 1/3 of strip width)
+            strip_width = target_width // 2
+            qr_size = strip_width // 3
+            
+            # Resize QR code maintaining aspect ratio
+            qr_img.thumbnail((qr_size, qr_size), Image.Resampling.LANCZOS)
+            
             # Add text at the bottom
             draw = ImageDraw.Draw(background)
             
@@ -159,14 +175,23 @@ def resize_image_for_printing(image_path, printer_name):
             # Calculate strip widths
             strip_width = target_width // 2
             
-            # Draw text on left strip
+            # Draw text and QR code on left strip
             left_text_x = (strip_width - text_width) // 2
             text_y = target_height - text_height - 50  # 50 pixels from bottom
             draw.text((left_text_x, text_y), text, fill='black', font=font)
             
-            # Draw text on right strip
+            # Position QR code above text on left strip
+            left_qr_x = (strip_width - qr_img.width) // 2
+            qr_y = text_y - qr_img.height - 20  # 20 pixels above text
+            background.paste(qr_img, (left_qr_x, qr_y))
+            
+            # Draw text and QR code on right strip
             right_text_x = strip_width + (strip_width - text_width) // 2
             draw.text((right_text_x, text_y), text, fill='black', font=font)
+            
+            # Position QR code above text on right strip
+            right_qr_x = strip_width + (strip_width - qr_img.width) // 2
+            background.paste(qr_img, (right_qr_x, qr_y))
             
             # Save the resized image
             resized_path = os.path.splitext(image_path)[0] + '_resized.jpg'
