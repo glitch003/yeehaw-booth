@@ -4,6 +4,8 @@ import sys
 import os
 from PIL import Image
 import traceback
+import img2pdf
+import subprocess
 
 def get_printer_info(printer_name):
     """Get detailed information about a specific printer"""
@@ -218,6 +220,57 @@ def list_printers():
         print(f"{i}. {name}")
     return printers
 
+def print_with_gsprint(pdf_path):
+    """Print a PDF file using gsprint"""
+    try:
+        # Get the path to gsprint.exe
+        gsprint_path = r"C:\Program Files\Ghostgum\gsview\gsprint.exe"
+        gswin64_path = r"C:\Program Files\gs\gs10.05.1\bin\gswin64.exe"
+        
+        if not os.path.exists(gsprint_path):
+            print(f"Error: gsprint.exe not found at {gsprint_path}")
+            return False
+            
+        if not os.path.exists(gswin64_path):
+            print(f"Error: gswin64.exe not found at {gswin64_path}")
+            return False
+            
+        # Construct the command
+        cmd = [gsprint_path, "-ghostscript", gswin64_path, pdf_path]
+        
+        # Execute the command
+        print(f"Executing: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("Print job submitted successfully!")
+            return True
+        else:
+            print(f"Error printing: {result.stderr}")
+            return False
+            
+    except Exception as e:
+        print(f"Error during printing: {str(e)}")
+        print(traceback.format_exc())
+        return False
+
+def convert_to_pdf(image_path):
+    """Convert an image to PDF"""
+    try:
+        # Create PDF filename
+        pdf_path = os.path.splitext(image_path)[0] + '.pdf'
+        
+        # Convert image to PDF
+        with open(pdf_path, "wb") as f:
+            f.write(img2pdf.convert(image_path))
+            
+        print(f"Converted {image_path} to {pdf_path}")
+        return pdf_path
+    except Exception as e:
+        print(f"Error converting to PDF: {str(e)}")
+        print(traceback.format_exc())
+        return None
+
 def main():
     printers = list_printers()
     dnp_printer = None
@@ -228,8 +281,13 @@ def main():
     
     if dnp_printer:
         print(f"\nFound DNP printer: {dnp_printer}")
-        image_path = r"C:\Users\glitc\Documents\yeehaw-booth\photos\strip_20250528_230537_print.jpg"
-        print_4x6_image(dnp_printer, image_path)
+        image_path = r"C:\Users\glitc\Documents\yeehaw-booth\background.png"
+        
+        # Convert image to PDF
+        pdf_path = convert_to_pdf(image_path)
+        if pdf_path:
+            # Print using gsprint
+            print_with_gsprint(pdf_path)
     else:
         print("\nNo DNP printer found. Would you like to:")
         for i, name in enumerate(printers, 1):
@@ -237,8 +295,10 @@ def main():
         try:
             choice = int(input("\nEnter printer number (or 0 to exit): "))
             if 1 <= choice <= len(printers):
-                image_path = r"C:\Users\glitc\Documents\yeehaw-booth\photos\strip_20250528_230537_print.jpg"
-                print_4x6_image(printers[choice-1], image_path)
+                image_path = r"C:\Users\glitc\Documents\yeehaw-booth\background.png"
+                pdf_path = convert_to_pdf(image_path)
+                if pdf_path:
+                    print_with_gsprint(pdf_path)
         except ValueError:
             print("Invalid input")
 

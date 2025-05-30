@@ -4,4 +4,5 @@ PyQt6>=6.4.0
 mediapipe>=0.10.0
 Pillow>=10.0.0
 pywin32>=306
+img2pdf>=0.6.1
 # pycups>=2.0.1  # Temporarily commented out - requires Visual C++ Build Tools 
