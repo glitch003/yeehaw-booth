@@ -44,7 +44,7 @@ class DNPPrinter:
             print(traceback.format_exc())
             return None
 
-    def print_with_gsprint(self, pdf_path):
+    def print_with_gsprint(self, pdf_path, printer_name=None):
         """Print a PDF file using gsprint"""
         try:
             # Get the path to gsprint.exe
@@ -60,7 +60,14 @@ class DNPPrinter:
                 return False
                 
             # Construct the command
-            cmd = [gsprint_path, "-ghostscript", gswin64_path, pdf_path]
+            cmd = [gsprint_path, "-ghostscript", gswin64_path]
+            
+            # Add printer specification if provided
+            if printer_name:
+                cmd.extend(["-printer", printer_name])
+                print(f"Targeting specific printer: {printer_name}")
+            
+            cmd.append(pdf_path)
             
             # Execute the command
             print(f"Executing: {' '.join(cmd)}")
@@ -111,7 +118,7 @@ class DNPPrinter:
                 raise Exception("Failed to convert image to PDF")
             
             # Print using gsprint
-            success = self.print_with_gsprint(pdf_path)
+            success = self.print_with_gsprint(pdf_path, self.printer_name)
             if not success:
                 raise Exception("Failed to print using gsprint")
                 
