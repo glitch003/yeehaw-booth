@@ -178,7 +178,7 @@ def resize_image_for_printing(image_path, printer_name):
             # Draw text and QR code on left strip
             left_text_x = (strip_width - text_width) // 2
             text_y = target_height - text_height - 50  # 50 pixels from bottom
-            draw.text((left_text_x, text_y), text, fill='black', font=font)
+            draw.text((left_text_x, text_y), text, fill='black', font=font, anchor="mm")
             
             # Position QR code above text on left strip
             left_qr_x = (strip_width - qr_img.width) // 2
@@ -187,7 +187,7 @@ def resize_image_for_printing(image_path, printer_name):
             
             # Draw text and QR code on right strip
             right_text_x = strip_width + (strip_width - text_width) // 2
-            draw.text((right_text_x, text_y), text, fill='black', font=font)
+            draw.text((right_text_x, text_y), text, fill='black', font=font, anchor="mm")
             
             # Position QR code above text on right strip
             right_qr_x = strip_width + (strip_width - qr_img.width) // 2
