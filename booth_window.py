@@ -2,9 +2,9 @@ import cv2
 import os
 import datetime
 import numpy as np
-from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QMessageBox, QHBoxLayout
+from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QMessageBox, QHBoxLayout, QProgressBar
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QImage, QPixmap, QFont
 from photo_capture_thread import PhotoCaptureThread
 from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
 from printer import DNPPrinter
@@ -26,6 +26,48 @@ class CowboyBooth(QMainWindow):
         self.image_label = QLabel(self)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.image_label)
+
+        # Create loading indicator (initially hidden)
+        self.loading_widget = QWidget(self)
+        self.loading_widget.setStyleSheet("""
+            QWidget {
+                background-color: rgba(0, 0, 0, 180);
+                border-radius: 10px;
+            }
+        """)
+        loading_layout = QVBoxLayout(self.loading_widget)
+        
+        self.loading_label = QLabel("Printing photos...", self)
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 24px;
+                font-weight: bold;
+                background-color: transparent;
+                padding: 20px;
+            }
+        """)
+        loading_layout.addWidget(self.loading_label)
+        
+        self.loading_progress = QProgressBar(self)
+        self.loading_progress.setRange(0, 0)  # Indeterminate progress
+        self.loading_progress.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid white;
+                border-radius: 5px;
+                background-color: transparent;
+                height: 20px;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        loading_layout.addWidget(self.loading_progress)
+        
+        self.loading_widget.hide()
+        self.loading_widget.setParent(self)
 
         # Create button layout
         button_layout = QHBoxLayout()
@@ -91,6 +133,10 @@ class CowboyBooth(QMainWindow):
         self.flash_timer.timeout.connect(self.end_flash)
         self.flash_active = False
         self.photo_count = 0
+
+        # Loading timer for printing indicator
+        self.loading_timer = QTimer()
+        self.loading_timer.timeout.connect(self.hide_loading_indicator)
 
         # Create photos directory if it doesn't exist
         self.photos_dir = "photos"
@@ -159,6 +205,22 @@ class CowboyBooth(QMainWindow):
         self.photo_capture_thread.finished.connect(self.on_photos_saved)
         self.photo_capture_thread.start()
 
+    def show_loading_indicator(self):
+        """Show the loading indicator overlay."""
+        # Position the loading widget in the center of the main window
+        self.loading_widget.resize(300, 150)
+        self.loading_widget.move(
+            (self.width() - self.loading_widget.width()) // 2,
+            (self.height() - self.loading_widget.height()) // 2
+        )
+        self.loading_widget.show()
+        self.loading_widget.raise_()  # Bring to front
+
+    def hide_loading_indicator(self):
+        """Hide the loading indicator overlay."""
+        self.loading_widget.hide()
+        self.loading_timer.stop()
+
     def on_photos_saved(self, frames):
         # Create vertical strip of 4 photos
         # Assuming all frames are the same size
@@ -184,10 +246,16 @@ class CowboyBooth(QMainWindow):
         panel_path = os.path.join(self.photos_dir, panel_filename)
         cv2.imwrite(panel_path, panel)
         
+        # Show loading indicator and start printing
+        self.show_loading_indicator()
+        
         # Print the strip
         if self.printer.print_strip(panel_path):
-            QMessageBox.information(self, "Success", "Photo strips printed successfully!")
+            # Start timer to hide loading indicator after 10 seconds
+            self.loading_timer.start(10000)  # 10 seconds
         else:
+            # Hide loading indicator immediately and show error
+            self.hide_loading_indicator()
             QMessageBox.warning(self, "Print Error", "Failed to print photo strips. Please check printer connection.")
         
         self.capture_button.setText("Take Photos")
@@ -240,6 +308,16 @@ class CowboyBooth(QMainWindow):
         qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
         self.image_label.setPixmap(QPixmap.fromImage(qt_image).scaled(
             self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio))
+
+    def resizeEvent(self, event):
+        """Handle window resize to reposition loading indicator."""
+        super().resizeEvent(event)
+        if hasattr(self, 'loading_widget') and self.loading_widget.isVisible():
+            # Reposition loading widget when window is resized
+            self.loading_widget.move(
+                (self.width() - self.loading_widget.width()) // 2,
+                (self.height() - self.loading_widget.height()) // 2
+            )
 
     def closeEvent(self, event):
         self.cap.release()

@@ -143,7 +143,7 @@ class BoloTieEffect(BodyEffect):
         )
         
         # Scale bolo tie size based on shoulder width
-        width = int(shoulder_distance * 0.4)  # Wider than mustache
+        width = int(shoulder_distance * 0.6)  # Increased from 0.4 to make it bigger
         height = int(width * self.effect_image.shape[0] / self.effect_image.shape[1])
         
         # Set angle to 0 to keep effects right-side up
@@ -201,7 +201,7 @@ class CowboyHatEffect(BodyEffect):
         
         # Position hat above the head (using nose as reference, moving up)
         cx = int(nose.x * w)
-        cy = int(nose.y * h) - int(height * 0.6)  # Above the head
+        cy = int(nose.y * h) - int(height * 0.9)  # Increased from 0.6 to 0.9 to move hat higher
         
         x = cx - width // 2
         y = cy - height // 2

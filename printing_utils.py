@@ -98,21 +98,23 @@ def resize_image_for_printing(image_path, printer_name):
             # Calculate strip widths
             strip_width = target_width // 2
             
-            # Draw text and QR code on left strip
-            left_text_x = (strip_width - text_width) // 2
-            text_y = target_height - text_height - 50  # 50 pixels from bottom
-            draw.text((left_text_x, text_y), text, fill='black', font=font, anchor="mm")
+            # Calculate center coordinates for each strip
+            left_strip_center_x = strip_width // 2
+            right_strip_center_x = strip_width + (strip_width // 2)
+            text_center_y = target_height - text_height // 2 - 50  # Center the text vertically in its area
             
-            # Position QR code above text on left strip
+            # Draw text on left strip (centered)
+            draw.text((left_strip_center_x, text_center_y), text, fill='black', font=font, anchor="mm")
+            
+            # Position QR code above text on left strip (centered)
             left_qr_x = (strip_width - qr_img.width) // 2
-            qr_y = text_y - qr_img.height - 20  # 20 pixels above text
+            qr_y = text_center_y - text_height // 2 - qr_img.height - 20  # 20 pixels above text
             background.paste(qr_img, (left_qr_x, qr_y))
             
-            # Draw text and QR code on right strip
-            right_text_x = strip_width + (strip_width - text_width) // 2
-            draw.text((right_text_x, text_y), text, fill='black', font=font, anchor="mm")
+            # Draw text on right strip (centered)
+            draw.text((right_strip_center_x, text_center_y), text, fill='black', font=font, anchor="mm")
             
-            # Position QR code above text on right strip
+            # Position QR code above text on right strip (centered)
             right_qr_x = strip_width + (strip_width - qr_img.width) // 2
             background.paste(qr_img, (right_qr_x, qr_y))
         
