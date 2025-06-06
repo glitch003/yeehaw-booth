@@ -19,6 +19,7 @@ class CowboyBooth(QMainWindow):
         
         # Add dev mode state
         self.dev_mode = False
+        self.live_effects_enabled = False  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
@@ -108,6 +109,13 @@ class CowboyBooth(QMainWindow):
         self.background_button.setChecked(EFFECT_CONFIG['background_enabled'])
         button_layout.addWidget(self.background_button)
 
+        # Add live effects toggle button
+        self.live_effects_button = QPushButton("Live Effects", self)
+        self.live_effects_button.clicked.connect(self.toggle_live_effects)
+        self.live_effects_button.setCheckable(True)
+        self.live_effects_button.setChecked(False)  # Off by default
+        button_layout.addWidget(self.live_effects_button)
+
         layout.addLayout(button_layout)
 
         # Hide all control buttons by default
@@ -116,6 +124,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.hide()
         self.cowboy_hat_button.hide()
         self.background_button.hide()
+        self.live_effects_button.hide()
 
         # Initialize effects
         self.mustache_effect = MustacheEffect()
@@ -279,11 +288,12 @@ class CowboyBooth(QMainWindow):
         if not ret:
             return
 
-        # Apply all effects to the preview
-        frame = self.background_effect.apply_effect(frame)
-        frame = self.mustache_effect.apply_effect(frame)
-        frame = self.bolo_tie_effect.apply_effect(frame)
-        frame = self.cowboy_hat_effect.apply_effect(frame)
+        # Only apply effects if live preview is enabled
+        if self.live_effects_enabled:
+            frame = self.background_effect.apply_effect(frame)
+            frame = self.mustache_effect.apply_effect(frame)
+            frame = self.bolo_tie_effect.apply_effect(frame)
+            frame = self.cowboy_hat_effect.apply_effect(frame)
 
         # Display countdown and photo count on the frame
         if self.countdown > 0:
@@ -394,4 +404,10 @@ class CowboyBooth(QMainWindow):
         self.mustache_button.setVisible(self.dev_mode)
         self.bolo_tie_button.setVisible(self.dev_mode)
         self.cowboy_hat_button.setVisible(self.dev_mode)
-        self.background_button.setVisible(self.dev_mode) 
+        self.background_button.setVisible(self.dev_mode)
+        self.live_effects_button.setVisible(self.dev_mode)
+
+    def toggle_live_effects(self):
+        """Toggle live effects preview on/off."""
+        self.live_effects_enabled = not self.live_effects_enabled
+        self.live_effects_button.setChecked(self.live_effects_enabled) 
