@@ -88,12 +88,17 @@ def resize_image_for_printing(image_path, printer_name):
                 font = ImageFont.load_default()
             
             # Text to add
-            text = "Law and Disorder\nBig Stick 2025"
+            text1 = "Law and Disorder"
+            text2 = "Big Stick 2025"
             
-            # Calculate text position for both strips
-            text_bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = text_bbox[2] - text_bbox[0]
-            text_height = text_bbox[3] - text_bbox[1]
+            # Calculate text positions for both strips
+            text1_bbox = draw.textbbox((0, 0), text1, font=font)
+            text2_bbox = draw.textbbox((0, 0), text2, font=font)
+            
+            text1_width = text1_bbox[2] - text1_bbox[0]
+            text2_width = text2_bbox[2] - text2_bbox[0]
+            text1_height = text1_bbox[3] - text1_bbox[1]
+            text2_height = text2_bbox[3] - text2_bbox[1]
             
             # Calculate strip widths
             strip_width = target_width // 2
@@ -101,18 +106,23 @@ def resize_image_for_printing(image_path, printer_name):
             # Calculate center coordinates for each strip
             left_strip_center_x = strip_width // 2
             right_strip_center_x = strip_width + (strip_width // 2)
-            text_center_y = target_height - text_height // 2 - 50  # Center the text vertically in its area
+            
+            # Calculate vertical positions for both text lines
+            total_text_height = text1_height + text2_height + 20  # 20 pixels spacing between lines
+            text_center_y = target_height - total_text_height // 2 - 80  # Increased offset to move text up
             
             # Draw text on left strip (centered)
-            draw.text((left_strip_center_x, text_center_y), text, fill='black', font=font, anchor="mm")
+            draw.text((left_strip_center_x, text_center_y), text1, fill='black', font=font, anchor="mm")
+            draw.text((left_strip_center_x, text_center_y + text1_height + 20), text2, fill='black', font=font, anchor="mm")
             
             # Position QR code above text on left strip (centered)
             left_qr_x = (strip_width - qr_img.width) // 2
-            qr_y = text_center_y - text_height // 2 - qr_img.height - 20  # 20 pixels above text
+            qr_y = text_center_y - text1_height // 2 - qr_img.height - 30  # Increased offset to move QR code up
             background.paste(qr_img, (left_qr_x, qr_y))
             
             # Draw text on right strip (centered)
-            draw.text((right_strip_center_x, text_center_y), text, fill='black', font=font, anchor="mm")
+            draw.text((right_strip_center_x, text_center_y), text1, fill='black', font=font, anchor="mm")
+            draw.text((right_strip_center_x, text_center_y + text1_height + 20), text2, fill='black', font=font, anchor="mm")
             
             # Position QR code above text on right strip (centered)
             right_qr_x = strip_width + (strip_width - qr_img.width) // 2
