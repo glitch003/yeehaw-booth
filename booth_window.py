@@ -309,6 +309,38 @@ class CowboyBooth(QMainWindow):
                 8,
                 cv2.LINE_AA
             )
+        elif not self.flash_active and self.photo_count == 0:
+            # Display tap instruction when idle
+            text = "Tap anywhere to start taking photos"
+            font_scale = 1.5
+            thickness = 3
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            
+            # Get text size to center it
+            (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
+            text_x = (frame.shape[1] - text_width) // 2
+            text_y = (frame.shape[0] + text_height) // 2
+            
+            # Add a semi-transparent background for better readability
+            overlay = frame.copy()
+            cv2.rectangle(overlay, 
+                         (text_x - 20, text_y - text_height - 20),
+                         (text_x + text_width + 20, text_y + 20),
+                         (0, 0, 0),
+                         -1)
+            cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+            
+            # Draw the text
+            cv2.putText(
+                frame,
+                text,
+                (text_x, text_y),
+                font,
+                font_scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA
+            )
 
         # Apply flash effect
         if self.flash_active:
