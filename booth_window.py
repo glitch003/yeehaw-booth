@@ -282,6 +282,7 @@ class CowboyBooth(QMainWindow):
         
         self.capture_button.setText("Take Photos")
         self.capture_button.setEnabled(True)
+        self.photo_count = 0  # Reset photo count to show the tap message again
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -319,8 +320,8 @@ class CowboyBooth(QMainWindow):
                 8,
                 cv2.LINE_AA
             )
-        elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive():
-            # Display tap instruction when idle
+        elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive() and not self.loading_widget.isVisible():
+            # Display tap instruction when idle and loading indicator is not visible
             text = "Tap anywhere to start taking photos"
             font_scale = 1.5
             thickness = 3
