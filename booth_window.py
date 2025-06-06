@@ -3,8 +3,8 @@ import os
 import datetime
 import numpy as np
 from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QMessageBox, QHBoxLayout, QProgressBar
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QImage, QPixmap, QFont
+from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
+from PyQt6.QtGui import QImage, QPixmap, QFont, QKeyEvent, QMouseEvent
 from photo_capture_thread import PhotoCaptureThread
 from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
 from printer import DNPPrinter
@@ -16,15 +16,21 @@ class CowboyBooth(QMainWindow):
         super().__init__()
         self.setWindowTitle("Yeehaw Booth")
         self.setGeometry(100, 100, 1280, 720)
+        
+        # Add dev mode state
+        self.dev_mode = False
 
         # Create central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins to allow full-screen video
 
         # Create label to display the webcam feed
         self.image_label = QLabel(self)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setMouseTracking(True)  # Enable mouse tracking for hover effects
+        self.image_label.installEventFilter(self)  # Install event filter
         layout.addWidget(self.image_label)
 
         # Create loading indicator (initially hidden)
@@ -103,6 +109,13 @@ class CowboyBooth(QMainWindow):
         button_layout.addWidget(self.background_button)
 
         layout.addLayout(button_layout)
+
+        # Hide all control buttons by default
+        self.capture_button.hide()
+        self.mustache_button.hide()
+        self.bolo_tie_button.hide()
+        self.cowboy_hat_button.hide()
+        self.background_button.hide()
 
         # Initialize effects
         self.mustache_effect = MustacheEffect()
@@ -321,4 +334,32 @@ class CowboyBooth(QMainWindow):
 
     def closeEvent(self, event):
         self.cap.release()
-        event.accept() 
+        event.accept()
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        """Event filter to handle mouse clicks on the image label."""
+        if obj == self.image_label and event.type() == QEvent.Type.MouseButtonPress:
+            # Only start photo capture if we're not in dev mode and not already capturing
+            print("Mouse click detected")
+            if not self.dev_mode:
+                print("Starting photo capture")
+                self.start_photo_capture()
+                return True  # Event handled
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Handle keyboard events."""
+        # Check for Ctrl+D
+        if event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.toggle_dev_mode()
+        super().keyPressEvent(event)
+
+    def toggle_dev_mode(self):
+        """Toggle dev mode and show/hide effect control buttons."""
+        self.dev_mode = not self.dev_mode
+        # Show/hide all control buttons
+        self.capture_button.setVisible(self.dev_mode)
+        self.mustache_button.setVisible(self.dev_mode)
+        self.bolo_tie_button.setVisible(self.dev_mode)
+        self.cowboy_hat_button.setVisible(self.dev_mode)
+        self.background_button.setVisible(self.dev_mode) 
