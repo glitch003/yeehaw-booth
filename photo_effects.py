@@ -3,26 +3,31 @@ import mediapipe as mp
 import numpy as np
 from abc import ABC, abstractmethod
 import math
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
 # Effect configuration
 EFFECT_CONFIG = {
-    'mustache_enabled': True,
+    'mustache_enabled': False,
     'bolo_tie_enabled': True,
-    'cowboy_hat_enabled': True,
+    'cowboy_hat_enabled': False,
     'background_enabled': False
 }
 
 class BodyEffect(ABC):
     def __init__(self):
-        # Initialize MediaPipe Pose
-        self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            enable_segmentation=False,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        model_path = './pose_landmarker_lite.task'
+
+        BaseOptions = mp.tasks.BaseOptions
+        PoseLandmarker = mp.tasks.vision.PoseLandmarker
+        PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+        VisionRunningMode = mp.tasks.vision.RunningMode
+        options = PoseLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=model_path),
+            running_mode=VisionRunningMode.IMAGE,
+            num_poses=10)
+
+        self.landmarker = PoseLandmarker.create_from_options(options)
         self.effect_image = None
         self.load_effect_image()
 
@@ -63,11 +68,17 @@ class BodyEffect(ABC):
             return frame
             
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.pose.process(rgb_frame)
+        # Convert the frame received from OpenCV to a MediaPipe’s Image object.
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        results = self.landmarker.detect(mp_image)
+        pose_landmarks_list = results.pose_landmarks
 
-        if results.pose_landmarks:
+        # Loop through the detected poses to visualize.
+        for idx in range(len(pose_landmarks_list)):
+            pose_landmarks = pose_landmarks_list[idx]
+
             h, w, _ = frame.shape
-            x, y, width, height, angle = self.get_effect_position(results.pose_landmarks, (h, w))
+            x, y, width, height, angle = self.get_effect_position(pose_landmarks, (h, w))
             
             # Ensure coordinates are within frame bounds
             x = max(0, min(x, w - width))
@@ -90,11 +101,11 @@ class MustacheEffect(BodyEffect):
     def get_effect_position(self, pose_landmarks, frame_shape):
         h, w = frame_shape
         # Use nose position for mustache placement (landmark 0)
-        nose = pose_landmarks.landmark[self.mp_pose.PoseLandmark.NOSE]
+        nose = pose_landmarks[mp.solutions.pose.PoseLandmark.NOSE]
         
         # Use shoulder width to estimate face size for better scaling at distance
-        left_shoulder = pose_landmarks.landmark[self.mp_pose.PoseLandmark.LEFT_SHOULDER]
-        right_shoulder = pose_landmarks.landmark[self.mp_pose.PoseLandmark.RIGHT_SHOULDER]
+        left_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER]
+        right_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER]
         
         # Calculate shoulder distance to estimate body size
         shoulder_distance = math.hypot(
@@ -133,8 +144,8 @@ class BoloTieEffect(BodyEffect):
     def get_effect_position(self, pose_landmarks, frame_shape):
         h, w = frame_shape
         # Use neck area for bolo tie placement
-        left_shoulder = pose_landmarks.landmark[self.mp_pose.PoseLandmark.LEFT_SHOULDER]
-        right_shoulder = pose_landmarks.landmark[self.mp_pose.PoseLandmark.RIGHT_SHOULDER]
+        left_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER]
+        right_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER]
         
         # Calculate shoulder distance for sizing
         shoulder_distance = math.hypot(
@@ -173,13 +184,13 @@ class CowboyHatEffect(BodyEffect):
     def get_effect_position(self, pose_landmarks, frame_shape):
         h, w = frame_shape
         # Use nose and ear positions for hat placement
-        nose = pose_landmarks.landmark[self.mp_pose.PoseLandmark.NOSE]
-        left_ear = pose_landmarks.landmark[self.mp_pose.PoseLandmark.LEFT_EAR]
-        right_ear = pose_landmarks.landmark[self.mp_pose.PoseLandmark.RIGHT_EAR]
+        nose = pose_landmarks[mp.solutions.pose.PoseLandmark.NOSE]
+        left_ear = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_EAR]
+        right_ear = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_EAR]
         
         # Use shoulder width for sizing reference
-        left_shoulder = pose_landmarks.landmark[self.mp_pose.PoseLandmark.LEFT_SHOULDER]
-        right_shoulder = pose_landmarks.landmark[self.mp_pose.PoseLandmark.RIGHT_SHOULDER]
+        left_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER]
+        right_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER]
         
         shoulder_distance = math.hypot(
             (right_shoulder.x - left_shoulder.x) * w,
