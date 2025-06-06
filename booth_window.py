@@ -43,7 +43,7 @@ class CowboyBooth(QMainWindow):
         """)
         loading_layout = QVBoxLayout(self.loading_widget)
         
-        self.loading_label = QLabel("Printing photos...", self)
+        self.loading_label = QLabel("Printing photos...\nCollect photos below", self)
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_label.setStyleSheet("""
             QLabel {
