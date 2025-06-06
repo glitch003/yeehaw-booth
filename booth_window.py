@@ -15,7 +15,7 @@ class CowboyBooth(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Yeehaw Booth")
-        self.setGeometry(100, 100, 1280, 720)
+        self.showFullScreen()
         
         # Add dev mode state
         self.dev_mode = False
