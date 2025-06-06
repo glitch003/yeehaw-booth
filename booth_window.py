@@ -322,10 +322,42 @@ class CowboyBooth(QMainWindow):
             )
         elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive() and not self.loading_widget.isVisible():
             # Display tap instruction when idle and loading indicator is not visible
+            # First draw the title
+            title_text = "Rootin Tootin Photo Booth"
+            title_font_scale = 2.5
+            title_thickness = 4
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            
+            # Get title text size to center it
+            (title_width, title_height), _ = cv2.getTextSize(title_text, font, title_font_scale, title_thickness)
+            title_x = (frame.shape[1] - title_width) // 2
+            title_y = frame.shape[0] // 3  # Position in top third of screen
+            
+            # Add a semi-transparent background for the title
+            title_overlay = frame.copy()
+            cv2.rectangle(title_overlay, 
+                         (title_x - 30, title_y - title_height - 30),
+                         (title_x + title_width + 30, title_y + 30),
+                         (0, 0, 0),
+                         -1)
+            cv2.addWeighted(title_overlay, 0.5, frame, 0.5, 0, frame)
+            
+            # Draw the title text
+            cv2.putText(
+                frame,
+                title_text,
+                (title_x, title_y),
+                font,
+                title_font_scale,
+                (255, 255, 255),
+                title_thickness,
+                cv2.LINE_AA
+            )
+
+            # Then draw the tap instruction
             text = "Tap anywhere to start taking photos"
             font_scale = 1.5
             thickness = 3
-            font = cv2.FONT_HERSHEY_SIMPLEX
             
             # Get text size to center it
             (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
