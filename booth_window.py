@@ -210,7 +210,7 @@ class CowboyBooth(QMainWindow):
 
     def start_flash(self):
         self.flash_active = True
-        self.flash_timer.start(500)  # Flash for 500ms
+        self.flash_timer.start(200)  # Flash for 200ms instead of 500ms
 
     def end_flash(self):
         self.flash_active = False
@@ -354,7 +354,10 @@ class CowboyBooth(QMainWindow):
 
         # Apply flash effect
         if self.flash_active:
-            frame = cv2.addWeighted(frame, 2.0, frame, 0, 0)  # Increased brightness multiplier
+            # Create a white overlay
+            white_overlay = np.ones_like(frame) * 255
+            # Blend with high alpha for a more intense flash
+            frame = cv2.addWeighted(frame, 0.3, white_overlay, 0.7, 0)
 
         # Convert frame to QImage and display
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
