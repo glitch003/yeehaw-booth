@@ -319,7 +319,7 @@ class CowboyBooth(QMainWindow):
                 8,
                 cv2.LINE_AA
             )
-        elif not self.flash_active and self.photo_count == 0:
+        elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive():
             # Display tap instruction when idle
             text = "Tap anywhere to start taking photos"
             font_scale = 1.5
