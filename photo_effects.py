@@ -11,7 +11,7 @@ EFFECT_CONFIG = {
     'mustache_enabled': True,
     'bolo_tie_enabled': True,
     'cowboy_hat_enabled': True,
-    'background_enabled': False
+    'background_enabled': True
 }
 
 class BodyEffect(ABC):
