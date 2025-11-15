@@ -327,7 +327,7 @@ class CowboyBooth(QMainWindow):
         elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive() and not self.loading_widget.isVisible():
             # Display tap instruction when idle and loading indicator is not visible
             # First draw the title
-            title_text = "Rootin Tootin Photo Booth"
+            title_text = "Photo Booth"
             title_font_scale = 2.5
             title_thickness = 4
             font = cv2.FONT_HERSHEY_SIMPLEX

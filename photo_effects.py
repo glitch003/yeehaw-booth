@@ -8,9 +8,9 @@ from mediapipe.tasks.python import vision
 
 # Effect configuration
 EFFECT_CONFIG = {
-    'mustache_enabled': True,
-    'bolo_tie_enabled': True,
-    'cowboy_hat_enabled': True,
+    'mustache_enabled': False,
+    'bolo_tie_enabled': False,
+    'cowboy_hat_enabled': False,
     'background_enabled': True
 }
 
