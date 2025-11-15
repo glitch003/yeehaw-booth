@@ -9,17 +9,21 @@ from photo_capture_thread import PhotoCaptureThread
 from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
-VIDEO_SOURCE_INDEX = 1
+# internal webcam
+VIDEO_SOURCE_INDEX = 0
+
+# droidcam
+# VIDEO_SOURCE_INDEX = 1
 
 class CowboyBooth(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Yeehaw Booth")
-        self.showFullScreen()
+        self.setWindowTitle("Photo Booth")
+        # self.showFullScreen()
         
         # Add dev mode state
-        self.dev_mode = False
-        self.live_effects_enabled = False  # Add state for live effects
+        self.dev_mode = True
+        self.live_effects_enabled = True  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
