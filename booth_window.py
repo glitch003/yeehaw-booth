@@ -14,12 +14,12 @@ VIDEO_SOURCE_INDEX = 0
 class CowboyBooth(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Yeehaw Booth")
+        self.setWindowTitle("Darren Booth")
         self.showFullScreen()
         
         # Add dev mode state
-        self.dev_mode = True
-        self.live_effects_enabled = True  # Add state for live effects
+        self.dev_mode = False
+        self.live_effects_enabled = False  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
@@ -333,7 +333,7 @@ class CowboyBooth(QMainWindow):
         elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive() and not self.loading_widget.isVisible():
             # Display tap instruction when idle and loading indicator is not visible
             # First draw the title
-            title_text = "Rootin Tootin Photo Booth"
+            title_text = "Darren's Magical Photo Booth"
             title_font_scale = 2.5
             title_thickness = 4
             font = cv2.FONT_HERSHEY_SIMPLEX
