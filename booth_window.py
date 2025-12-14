@@ -6,10 +6,10 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from PyQt6.QtGui import QImage, QPixmap, QFont, QKeyEvent, QMouseEvent
 from photo_capture_thread import PhotoCaptureThread
-from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
+from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, DarrenFaceSwapEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
-VIDEO_SOURCE_INDEX = 1
+VIDEO_SOURCE_INDEX = 0
 
 class CowboyBooth(QMainWindow):
     def __init__(self):
@@ -19,7 +19,7 @@ class CowboyBooth(QMainWindow):
         
         # Add dev mode state
         self.dev_mode = False
-        self.live_effects_enabled = False  # Add state for live effects
+        self.live_effects_enabled = True  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
@@ -109,6 +109,12 @@ class CowboyBooth(QMainWindow):
         self.background_button.setChecked(EFFECT_CONFIG['background_enabled'])
         button_layout.addWidget(self.background_button)
 
+        self.darren_button = QPushButton("Darren", self)
+        self.darren_button.clicked.connect(lambda: self.toggle_effect('darren_enabled'))
+        self.darren_button.setCheckable(True)
+        self.darren_button.setChecked(EFFECT_CONFIG['darren_enabled'])
+        button_layout.addWidget(self.darren_button)
+
         # Add live effects toggle button
         self.live_effects_button = QPushButton("Live Effects", self)
         self.live_effects_button.clicked.connect(self.toggle_live_effects)
@@ -124,6 +130,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.hide()
         self.cowboy_hat_button.hide()
         self.background_button.hide()
+        self.darren_button.hide()
         self.live_effects_button.hide()
 
         # Initialize effects
@@ -131,6 +138,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_effect = BoloTieEffect()
         self.cowboy_hat_effect = CowboyHatEffect()
         self.background_effect = BackgroundReplacementEffect()
+        self.darren_effect = DarrenFaceSwapEffect()
 
         # Initialize printer
         self.printer = DNPPrinter()
@@ -199,6 +207,7 @@ class CowboyBooth(QMainWindow):
             # Apply all effects to the saved photo
             frame_with_effects = frame.copy()
             frame_with_effects = self.background_effect.apply_effect(frame_with_effects)
+            frame_with_effects = self.darren_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.mustache_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.bolo_tie_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.cowboy_hat_effect.apply_effect(frame_with_effects)
@@ -292,6 +301,7 @@ class CowboyBooth(QMainWindow):
         # Only apply effects if live preview is enabled
         if self.live_effects_enabled:
             frame = self.background_effect.apply_effect(frame)
+            frame = self.darren_effect.apply_effect(frame)
             frame = self.mustache_effect.apply_effect(frame)
             frame = self.bolo_tie_effect.apply_effect(frame)
             frame = self.cowboy_hat_effect.apply_effect(frame)
@@ -441,6 +451,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.setVisible(self.dev_mode)
         self.cowboy_hat_button.setVisible(self.dev_mode)
         self.background_button.setVisible(self.dev_mode)
+        self.darren_button.setVisible(self.dev_mode)
         self.live_effects_button.setVisible(self.dev_mode)
 
     def toggle_live_effects(self):
