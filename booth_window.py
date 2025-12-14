@@ -6,11 +6,11 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from PyQt6.QtGui import QImage, QPixmap, QFont, QKeyEvent, QMouseEvent
 from photo_capture_thread import PhotoCaptureThread
-from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
+from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EggFaceEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
 # internal webcam
-VIDEO_SOURCE_INDEX = 0
+VIDEO_SOURCE_INDEX = 1
 
 # droidcam
 # VIDEO_SOURCE_INDEX = 1
@@ -18,12 +18,12 @@ VIDEO_SOURCE_INDEX = 0
 class CowboyBooth(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Photo Booth")
-        # self.showFullScreen()
+        self.setWindowTitle("Birthday Photo Booth")
+        self.showFullScreen()
         
         # Add dev mode state
-        self.dev_mode = True
-        self.live_effects_enabled = True  # Add state for live effects
+        self.dev_mode = False
+        self.live_effects_enabled = False  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
@@ -113,6 +113,12 @@ class CowboyBooth(QMainWindow):
         self.background_button.setChecked(EFFECT_CONFIG['background_enabled'])
         button_layout.addWidget(self.background_button)
 
+        self.egg_face_button = QPushButton("Egg Face", self)
+        self.egg_face_button.clicked.connect(lambda: self.toggle_effect('egg_face_enabled'))
+        self.egg_face_button.setCheckable(True)
+        self.egg_face_button.setChecked(EFFECT_CONFIG['egg_face_enabled'])
+        button_layout.addWidget(self.egg_face_button)
+
         # Add live effects toggle button
         self.live_effects_button = QPushButton("Live Effects", self)
         self.live_effects_button.clicked.connect(self.toggle_live_effects)
@@ -128,6 +134,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.hide()
         self.cowboy_hat_button.hide()
         self.background_button.hide()
+        self.egg_face_button.hide()
         self.live_effects_button.hide()
 
         # Initialize effects
@@ -135,6 +142,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_effect = BoloTieEffect()
         self.cowboy_hat_effect = CowboyHatEffect()
         self.background_effect = BackgroundReplacementEffect()
+        self.egg_face_effect = EggFaceEffect()
 
         # Initialize printer
         self.printer = DNPPrinter()
@@ -203,6 +211,7 @@ class CowboyBooth(QMainWindow):
             # Apply all effects to the saved photo
             frame_with_effects = frame.copy()
             frame_with_effects = self.background_effect.apply_effect(frame_with_effects)
+            frame_with_effects = self.egg_face_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.mustache_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.bolo_tie_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.cowboy_hat_effect.apply_effect(frame_with_effects)
@@ -296,6 +305,7 @@ class CowboyBooth(QMainWindow):
         # Only apply effects if live preview is enabled
         if self.live_effects_enabled:
             frame = self.background_effect.apply_effect(frame)
+            frame = self.egg_face_effect.apply_effect(frame)
             frame = self.mustache_effect.apply_effect(frame)
             frame = self.bolo_tie_effect.apply_effect(frame)
             frame = self.cowboy_hat_effect.apply_effect(frame)
@@ -327,7 +337,7 @@ class CowboyBooth(QMainWindow):
         elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive() and not self.loading_widget.isVisible():
             # Display tap instruction when idle and loading indicator is not visible
             # First draw the title
-            title_text = "Photo Booth"
+            title_text = "Seggsy Birthday Photo Booth"
             title_font_scale = 2.5
             title_thickness = 4
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -445,6 +455,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.setVisible(self.dev_mode)
         self.cowboy_hat_button.setVisible(self.dev_mode)
         self.background_button.setVisible(self.dev_mode)
+        self.egg_face_button.setVisible(self.dev_mode)
         self.live_effects_button.setVisible(self.dev_mode)
 
     def toggle_live_effects(self):

@@ -11,7 +11,8 @@ EFFECT_CONFIG = {
     'mustache_enabled': False,
     'bolo_tie_enabled': False,
     'cowboy_hat_enabled': False,
-    'background_enabled': True
+    'background_enabled': False,
+    'egg_face_enabled': True
 }
 
 class BodyEffect(ABC):
@@ -259,4 +260,107 @@ class BackgroundReplacementEffect:
         # Combine the frame and background using the mask
         output = np.where(mask_3d, frame, background)
         
-        return output.astype(np.uint8) 
+        return output.astype(np.uint8)
+
+class EggFaceEffect:
+    def __init__(self):
+        # Initialize MediaPipe Face Detection
+        self.mp_face_detection = mp.solutions.face_detection
+        self.face_detection = self.mp_face_detection.FaceDetection(
+            model_selection=0,  # 0 for short-range, 1 for full-range
+            min_detection_confidence=0.5
+        )
+
+    def is_enabled(self):
+        return EFFECT_CONFIG['egg_face_enabled']
+
+    def apply_effect(self, frame):
+        """Apply egg face stretching effect to detected faces."""
+        if not self.is_enabled():
+            return frame
+
+        # Convert frame to RGB for MediaPipe
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.face_detection.process(rgb_frame)
+
+        if results.detections:
+            h, w = frame.shape[:2]
+            output_frame = frame.copy()
+
+            for detection in results.detections:
+                # Get bounding box
+                bbox = detection.location_data.relative_bounding_box
+                x = int(bbox.xmin * w)
+                y = int(bbox.ymin * h)
+                width = int(bbox.width * w)
+                height = int(bbox.height * h)
+
+                # Ensure coordinates are within frame bounds
+                x = max(0, min(x, w - 1))
+                y = max(0, min(y, h - 1))
+                width = min(width, w - x)
+                height = min(height, h - y)
+
+                if width > 0 and height > 0:
+                    # Extract face region
+                    face_region = frame[y:y+height, x:x+width].copy()
+
+                    # Create egg-shaped transformation
+                    # Make it narrower at top, wider at bottom
+                    egg_face = self._apply_egg_warp(face_region)
+
+                    # Replace the face region in the output frame
+                    egg_h, egg_w = egg_face.shape[:2]
+                    if egg_h > 0 and egg_w > 0:
+                        # Ensure the egg face fits within bounds
+                        end_y = min(y + egg_h, h)
+                        end_x = min(x + egg_w, w)
+                        actual_h = end_y - y
+                        actual_w = end_x - x
+
+                        if actual_h > 0 and actual_w > 0:
+                            output_frame[y:end_y, x:end_x] = egg_face[:actual_h, :actual_w]
+
+            return output_frame
+
+        return frame
+
+    def _apply_egg_warp(self, face_region):
+        """Apply egg-shaped warping to the face region."""
+        h, w = face_region.shape[:2]
+        if h == 0 or w == 0:
+            return face_region
+
+        # Create a mesh grid
+        map_x = np.zeros((h, w), dtype=np.float32)
+        map_y = np.zeros((h, w), dtype=np.float32)
+
+        # Center of the face
+        center_x = w / 2.0
+        center_y = h / 2.0
+
+        # Apply egg transformation: narrower at top, wider at bottom
+        for y in range(h):
+            for x in range(w):
+                # Normalize coordinates relative to center
+                rel_x = (x - center_x) / center_x
+                rel_y = (y - center_y) / center_y
+
+                # Create egg shape: vertical stretching factor varies from top to bottom
+                # At top (rel_y < 0): compress horizontally
+                # At bottom (rel_y > 0): expand horizontally
+                # Use a smooth curve for the transformation
+                stretch_factor = 1.0 + 0.4 * (rel_y + 1.0)  # 0.6 at top, 1.4 at bottom
+
+                # Apply horizontal stretching
+                new_x = center_x + rel_x * center_x * stretch_factor
+                new_y = y  # Keep vertical position unchanged
+
+                # Clamp to valid range
+                map_x[y, x] = max(0, min(w - 1, new_x))
+                map_y[y, x] = max(0, min(h - 1, new_y))
+
+        # Apply the remapping
+        egg_face = cv2.remap(face_region, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+
+        return egg_face 
