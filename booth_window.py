@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from PyQt6.QtGui import QImage, QPixmap, QFont, QKeyEvent, QMouseEvent
 from photo_capture_thread import PhotoCaptureThread
-from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, DarrenFaceSwapEffect, EFFECT_CONFIG
+from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, DarrenOverShoulderEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
 VIDEO_SOURCE_INDEX = 0
@@ -18,7 +18,7 @@ class CowboyBooth(QMainWindow):
         self.showFullScreen()
         
         # Add dev mode state
-        self.dev_mode = False
+        self.dev_mode = True
         self.live_effects_enabled = True  # Add state for live effects
 
         # Create central widget and layout
@@ -138,7 +138,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_effect = BoloTieEffect()
         self.cowboy_hat_effect = CowboyHatEffect()
         self.background_effect = BackgroundReplacementEffect()
-        self.darren_effect = DarrenFaceSwapEffect()
+        self.darren_effect = DarrenOverShoulderEffect()
 
         # Initialize printer
         self.printer = DNPPrinter()

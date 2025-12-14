@@ -3,8 +3,9 @@ import mediapipe as mp
 import numpy as np
 from abc import ABC, abstractmethod
 import math
-import os
 import random
+import glob
+import os
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
@@ -222,6 +223,147 @@ class CowboyHatEffect(BodyEffect):
         
         return x, y, width, height, angle
 
+class DarrenOverShoulderEffect:
+    """Effect that places random Darren photos peeking over each person's shoulder."""
+    
+    def __init__(self):
+        model_path = './pose_landmarker_lite.task'
+
+        BaseOptions = mp.tasks.BaseOptions
+        PoseLandmarker = mp.tasks.vision.PoseLandmarker
+        PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+        VisionRunningMode = mp.tasks.vision.RunningMode
+        options = PoseLandmarkerOptions(
+            # base_options=BaseOptions(model_asset_path=model_path),
+            base_options=BaseOptions(model_asset_buffer=open(model_path, "rb").read()),
+            running_mode=VisionRunningMode.IMAGE,
+            num_poses=10)
+
+        self.landmarker = PoseLandmarker.create_from_options(options)
+        self.darren_images = []
+        self.load_darren_images()
+    
+    def load_darren_images(self):
+        """Load all Darren images from the darren folder."""
+        darren_folder = './darren'
+        image_patterns = ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']
+        
+        for pattern in image_patterns:
+            for image_path in glob.glob(os.path.join(darren_folder, pattern)):
+                img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+                if img is not None:
+                    # If image doesn't have alpha channel, add one
+                    if img.shape[2] == 3:
+                        # Create alpha channel (fully opaque)
+                        alpha = np.ones((img.shape[0], img.shape[1], 1), dtype=np.uint8) * 255
+                        img = np.concatenate([img, alpha], axis=2)
+                    self.darren_images.append(img)
+        
+        if not self.darren_images:
+            print("Warning: No Darren images found in ./darren folder")
+    
+    def is_enabled(self):
+        return EFFECT_CONFIG['darren_enabled']
+    
+    def get_random_darren(self):
+        """Return a random Darren image."""
+        if self.darren_images:
+            return random.choice(self.darren_images)
+        return None
+    
+    def overlay_darren(self, frame, darren_img, x, y, width, height):
+        """Overlay a Darren image on the frame at the specified position."""
+        if width <= 0 or height <= 0 or darren_img is None:
+            return frame
+        
+        h, w = frame.shape[:2]
+        
+        # Resize Darren image
+        resized_darren = cv2.resize(darren_img, (width, height), interpolation=cv2.INTER_AREA)
+        
+        # Calculate the valid region (handle edges)
+        x1, y1 = max(0, x), max(0, y)
+        x2, y2 = min(w, x + width), min(h, y + height)
+        
+        # Calculate corresponding region in the Darren image
+        dx1 = x1 - x
+        dy1 = y1 - y
+        dx2 = dx1 + (x2 - x1)
+        dy2 = dy1 + (y2 - y1)
+        
+        if x2 <= x1 or y2 <= y1:
+            return frame
+        
+        # Get the alpha channel
+        alpha = resized_darren[dy1:dy2, dx1:dx2, 3] / 255.0
+        
+        # Blend the images
+        for c in range(3):
+            frame[y1:y2, x1:x2, c] = \
+                frame[y1:y2, x1:x2, c] * (1 - alpha) + \
+                resized_darren[dy1:dy2, dx1:dx2, c] * alpha
+        
+        return frame
+    
+    def apply_effect(self, frame):
+        """Apply Darren over shoulder effect to all detected people."""
+        if not self.is_enabled() or not self.darren_images:
+            return frame
+        
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        results = self.landmarker.detect(mp_image)
+        pose_landmarks_list = results.pose_landmarks
+
+        h, w, _ = frame.shape
+
+        # Process each detected person
+        for idx in range(len(pose_landmarks_list)):
+            pose_landmarks = pose_landmarks_list[idx]
+            
+            # Get a random Darren for this person
+            darren_img = self.get_random_darren()
+            if darren_img is None:
+                continue
+            
+            # Get shoulder positions
+            left_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER]
+            right_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER]
+            
+            # Calculate shoulder distance for sizing
+            shoulder_distance = math.hypot(
+                (right_shoulder.x - left_shoulder.x) * w,
+                (right_shoulder.y - left_shoulder.y) * h
+            )
+            
+            # Randomly pick left or right shoulder
+            if random.choice([True, False]):
+                shoulder = left_shoulder
+                # Position slightly to the left of the left shoulder
+                offset_x = -0.3
+            else:
+                shoulder = right_shoulder
+                # Position slightly to the right of the right shoulder
+                offset_x = 0.3
+            
+            # Size Darren based on shoulder distance (make him about 60% of shoulder width)
+            darren_width = int(shoulder_distance * 0.8)
+            # Maintain aspect ratio
+            darren_height = int(darren_width * darren_img.shape[0] / darren_img.shape[1])
+            
+            # Position Darren peeking over the shoulder
+            # Place him slightly behind and above the shoulder
+            cx = int(shoulder.x * w + shoulder_distance * offset_x)
+            cy = int(shoulder.y * h - darren_height * 0.3)  # Move up to peek over
+            
+            x = cx - darren_width // 2
+            y = cy - darren_height // 2
+            
+            frame = self.overlay_darren(frame, darren_img, x, y, darren_width, darren_height)
+        
+        return frame
+
+
 class BackgroundReplacementEffect:
     def __init__(self):
         # Initialize MediaPipe Selfie Segmentation
@@ -262,196 +404,4 @@ class BackgroundReplacementEffect:
         # Combine the frame and background using the mask
         output = np.where(mask_3d, frame, background)
         
-        return output.astype(np.uint8)
-
-class DarrenFaceSwapEffect:
-    def __init__(self):
-        # Initialize MediaPipe Face Detection
-        self.mp_face_detection = mp.solutions.face_detection
-        self.face_detection = self.mp_face_detection.FaceDetection(
-            model_selection=1,  # Full range model
-            min_detection_confidence=0.5
-        )
-        
-        # Initialize MediaPipe Face Mesh for better face alignment
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
-        
-        self.darren_face = None
-        self.darren_landmarks = None
-        self.load_darren_face()
-
-    def is_enabled(self):
-        return EFFECT_CONFIG['darren_enabled']
-
-    def load_darren_face(self):
-        """Load Darren's face from one of the photos in the darren folder."""
-        darren_folder = 'darren'
-        if not os.path.exists(darren_folder):
-            print(f"Warning: {darren_folder} folder not found")
-            return
-        
-        # Get all jpg files in the darren folder
-        darren_files = [f for f in os.listdir(darren_folder) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-        if not darren_files:
-            print(f"Warning: No image files found in {darren_folder} folder")
-            return
-        
-        # randomize the order of the files
-        random.shuffle(darren_files)
-        
-        # Try to load a face from one of Darren's photos
-        for darren_file in darren_files:
-            darren_path = os.path.join(darren_folder, darren_file)
-            darren_image = cv2.imread(darren_path)
-            if darren_image is None:
-                continue
-            
-            # Convert to RGB for MediaPipe
-            darren_rgb = cv2.cvtColor(darren_image, cv2.COLOR_BGR2RGB)
-            
-            # Try to detect face in Darren's photo
-            face_results = self.face_detection.process(darren_rgb)
-            if face_results.detections:
-                # Get the first detected face
-                detection = face_results.detections[0]
-                bbox = detection.location_data.relative_bounding_box
-                h, w, _ = darren_image.shape
-                
-                # Extract face region with padding
-                x = int(bbox.xmin * w)
-                y = int(bbox.ymin * h)
-                face_w = int(bbox.width * w)
-                face_h = int(bbox.height * h)
-                
-                # Add padding
-                padding = 50
-                x = max(0, x - padding)
-                y = max(0, y - padding)
-                face_w = min(w - x, face_w + 2 * padding)
-                face_h = min(h - y, face_h + 2 * padding)
-                
-                # Extract and store Darren's face
-                self.darren_face = darren_image[y:y+face_h, x:x+face_w].copy()
-                
-                # Get face landmarks for Darren's face
-                mesh_results = self.face_mesh.process(darren_rgb)
-                if mesh_results.multi_face_landmarks:
-                    self.darren_landmarks = mesh_results.multi_face_landmarks[0]
-                    print(f"Successfully loaded Darren's face from {darren_file}")
-                    return
-        
-        print("Warning: Could not detect face in any Darren photos")
-
-    def get_face_mask(self, landmarks, bbox, img_shape):
-        """Create a mask for the face region using landmarks and bounding box."""
-        h, w = img_shape[:2]
-        mask = np.zeros((h, w), dtype=np.uint8)
-        
-        # Get face outline points from MediaPipe face mesh
-        # These are the indices for the face oval contour
-        face_oval_indices = [
-            10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
-            397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
-            172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
-        ]
-        
-        points = []
-        for idx in face_oval_indices:
-            if idx < len(landmarks.landmark):
-                landmark = landmarks.landmark[idx]
-                points.append([int(landmark.x * w), int(landmark.y * h)])
-        
-        if len(points) > 2:
-            points = np.array(points, dtype=np.int32)
-            cv2.fillPoly(mask, [points], 255)
-        else:
-            # Fallback: use elliptical mask based on bounding box
-            x = int(bbox.xmin * w)
-            y = int(bbox.ymin * h)
-            face_w = int(bbox.width * w)
-            face_h = int(bbox.height * h)
-            center = (x + face_w // 2, y + face_h // 2)
-            axes = (face_w // 2, int(face_h * 0.9))
-            cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
-        
-        # Apply Gaussian blur for smoother edges
-        mask = cv2.GaussianBlur(mask, (21, 21), 0)
-        
-        return mask
-
-    def apply_effect(self, frame):
-        """Apply face swap effect to replace detected faces with Darren's face."""
-        if not self.is_enabled() or self.darren_face is None:
-            return frame
-        
-        # Convert frame to RGB for MediaPipe
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Detect faces in the frame
-        face_results = self.face_detection.process(rgb_frame)
-        
-        if not face_results.detections:
-            return frame
-        
-        # Get face mesh landmarks for better alignment
-        mesh_results = self.face_mesh.process(rgb_frame)
-        
-        if not mesh_results.multi_face_landmarks:
-            return frame
-        
-        # Process each detected face (use the first one if multiple detected)
-        if len(face_results.detections) > 0 and len(mesh_results.multi_face_landmarks) > 0:
-            detection = face_results.detections[0]
-            landmarks = mesh_results.multi_face_landmarks[0]
-            
-            # Get bounding box
-            bbox = detection.location_data.relative_bounding_box
-            h, w, _ = frame.shape
-            
-            x = int(bbox.xmin * w)
-            y = int(bbox.ymin * h)
-            face_w = int(bbox.width * w)
-            face_h = int(bbox.height * h)
-            
-            # Ensure coordinates are within bounds
-            x = max(0, x)
-            y = max(0, y)
-            face_w = min(w - x, face_w)
-            face_h = min(h - y, face_h)
-            
-            if face_w > 0 and face_h > 0:
-                # Resize Darren's face to match detected face size
-                darren_resized = cv2.resize(self.darren_face, (face_w, face_h), interpolation=cv2.INTER_LINEAR)
-                
-                # Create a mask for blending
-                mask = self.get_face_mask(landmarks, bbox, frame.shape)
-                
-                # Extract the mask region for the face
-                face_mask = mask[y:y+face_h, x:x+face_w]
-                
-                # Normalize mask to 0-1 range
-                if face_mask.max() > 0:
-                    face_mask = face_mask.astype(np.float32) / 255.0
-                else:
-                    # Fallback: use elliptical mask if landmark mask fails
-                    face_mask = np.ones((face_h, face_w), dtype=np.float32)
-                    cv2.ellipse(face_mask, (face_w//2, face_h//2), (face_w//2, int(face_h*0.9)), 0, 0, 360, 1.0, -1)
-                    face_mask = cv2.GaussianBlur(face_mask, (21, 21), 0)
-                
-                # Expand mask to 3 channels
-                face_mask_3d = np.stack([face_mask] * 3, axis=-1)
-                
-                # Blend Darren's face into the frame
-                frame[y:y+face_h, x:x+face_w] = (
-                    frame[y:y+face_h, x:x+face_w] * (1 - face_mask_3d) +
-                    darren_resized * face_mask_3d
-                ).astype(np.uint8)
-        
-        return frame 
+        return output.astype(np.uint8) 
