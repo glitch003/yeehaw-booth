@@ -27,7 +27,7 @@ class BodyEffect(ABC):
         PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
         VisionRunningMode = mp.tasks.vision.RunningMode
         options = PoseLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=model_path),
+            base_options=BaseOptions(model_asset_buffer=open(model_path, "rb").read()),
             running_mode=VisionRunningMode.IMAGE,
             num_poses=10)
 
@@ -223,54 +223,34 @@ class CowboyHatEffect(BodyEffect):
         
         return x, y, width, height, angle
 
-class DarrenOverShoulderEffect:
+class DarrenOverShoulderEffect(BodyEffect):
     """Effect that places random Darren photos peeking over each person's shoulder."""
     
     def __init__(self):
-        model_path = './pose_landmarker_lite.task'
-
-        BaseOptions = mp.tasks.BaseOptions
-        PoseLandmarker = mp.tasks.vision.PoseLandmarker
-        PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
-        VisionRunningMode = mp.tasks.vision.RunningMode
-        options = PoseLandmarkerOptions(
-            # base_options=BaseOptions(model_asset_path=model_path),
-            base_options=BaseOptions(model_asset_buffer=open(model_path, "rb").read()),
-            running_mode=VisionRunningMode.IMAGE,
-            num_poses=10)
-
-        self.landmarker = PoseLandmarker.create_from_options(options)
-        
-        # Initialize selfie segmentation for background removal
+        # Initialize selfie segmentation for background removal BEFORE parent init
+        # (parent init calls load_effect_image which needs this)
         self.mp_selfie_segmentation = mp.solutions.selfie_segmentation
         self.selfie_segmentation = self.mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
-        
         self.darren_images = []
-        self.load_darren_images()
+        super().__init__()
+    
+    def is_enabled(self):
+        return EFFECT_CONFIG['darren_enabled']
     
     def remove_background(self, img):
         """Remove background from an image using selfie segmentation."""
-        # Convert BGR to RGB for MediaPipe
         rgb_img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2RGB)
-        
-        # Get segmentation mask
         results = self.selfie_segmentation.process(rgb_img)
         mask = results.segmentation_mask
-        
-        # Create a binary mask (threshold at 0.5 for cleaner edges)
         binary_mask = (mask > 0.5).astype(np.uint8) * 255
-        
-        # Optional: smooth the mask edges
         binary_mask = cv2.GaussianBlur(binary_mask, (5, 5), 0)
         
-        # Create BGRA image with the mask as alpha
         bgra = np.zeros((img.shape[0], img.shape[1], 4), dtype=np.uint8)
         bgra[:, :, :3] = img[:, :, :3]
         bgra[:, :, 3] = binary_mask
-        
         return bgra
     
-    def load_darren_images(self):
+    def load_effect_image(self):
         """Load all Darren images from the darren folder and remove backgrounds."""
         darren_folder = './darren'
         image_patterns = ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']
@@ -279,9 +259,7 @@ class DarrenOverShoulderEffect:
             for image_path in glob.glob(os.path.join(darren_folder, pattern)):
                 img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
                 if img is not None:
-                    # If image doesn't have alpha channel, it's RGB
                     if len(img.shape) == 2 or img.shape[2] == 3:
-                        # Remove background using selfie segmentation
                         img = self.remove_background(img)
                     self.darren_images.append(img)
                     print(f"Loaded and processed: {image_path}")
@@ -290,150 +268,50 @@ class DarrenOverShoulderEffect:
             print("Warning: No Darren images found in ./darren folder")
         else:
             print(f"Loaded {len(self.darren_images)} Darren images with backgrounds removed")
+            # Set effect_image to first one (will be randomized in get_effect_position)
+            self.effect_image = self.darren_images[0]
     
-    def is_enabled(self):
-        return EFFECT_CONFIG['darren_enabled']
-    
-    def get_random_darren(self):
-        """Return a random Darren image."""
-        if self.darren_images:
-            return random.choice(self.darren_images).copy()
-        return None
-    
-    def overlay_darren(self, frame, darren_img, x, y, width, height, angle=0):
-        """Overlay a Darren image on the frame at the specified position with rotation."""
-        if width <= 0 or height <= 0 or darren_img is None:
-            return frame
+    def get_effect_position(self, pose_landmarks, frame_shape):
+        """Calculate position for Darren over the shoulder."""
+        h, w = frame_shape
         
-        frame_h, frame_w = frame.shape[:2]
+        # Pick a random Darren for this person
+        self.effect_image = random.choice(self.darren_images)
         
-        # Resize Darren image
-        resized_darren = cv2.resize(darren_img, (width, height), interpolation=cv2.INTER_AREA)
+        # Get shoulder positions
+        left_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER]
+        right_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER]
         
-        # Rotate the image if angle is specified
-        if angle != 0:
-            # Get rotation matrix
-            center = (width // 2, height // 2)
-            rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
-            
-            # Calculate new bounding box size after rotation
-            cos = np.abs(rot_mat[0, 0])
-            sin = np.abs(rot_mat[0, 1])
-            new_w = int(height * sin + width * cos)
-            new_h = int(height * cos + width * sin)
-            
-            # Adjust the rotation matrix for the new size
-            rot_mat[0, 2] += (new_w - width) / 2
-            rot_mat[1, 2] += (new_h - height) / 2
-            
-            # Perform rotation with transparent background
-            resized_darren = cv2.warpAffine(resized_darren, rot_mat, (new_w, new_h),
-                                            flags=cv2.INTER_LINEAR,
-                                            borderMode=cv2.BORDER_CONSTANT,
-                                            borderValue=(0, 0, 0, 0))
-            
-            # Update dimensions and position for the rotated image
-            width, height = new_w, new_h
-            x = x - (new_w - width) // 2
-            y = y - (new_h - height) // 2
+        left_x, left_y = left_shoulder.x * w, left_shoulder.y * h
+        right_x, right_y = right_shoulder.x * w, right_shoulder.y * h
         
-        # Calculate the valid region (handle edges)
-        x1, y1 = max(0, x), max(0, y)
-        x2, y2 = min(frame_w, x + width), min(frame_h, y + height)
+        shoulder_distance = math.hypot(right_x - left_x, right_y - left_y)
         
-        # Calculate corresponding region in the Darren image
-        dx1 = x1 - x
-        dy1 = y1 - y
-        dx2 = dx1 + (x2 - x1)
-        dy2 = dy1 + (y2 - y1)
+        # Randomly pick left or right shoulder
+        use_left = random.choice([True, False])
+        shoulder_offset_multiplier = 1.25
         
-        if x2 <= x1 or y2 <= y1 or dx2 <= dx1 or dy2 <= dy1:
-            return frame
+        if use_left:
+            shoulder_x, shoulder_y = left_x, left_y
+            offset_x = -shoulder_distance * shoulder_offset_multiplier
+            angle = 10  # Lean in from left
+        else:
+            shoulder_x, shoulder_y = right_x, right_y
+            offset_x = shoulder_distance * shoulder_offset_multiplier
+            angle = -10  # Lean in from right
         
-        # Get the alpha channel
-        alpha = resized_darren[dy1:dy2, dx1:dx2, 3] / 255.0
+        # Size based on shoulder distance
+        width = int(shoulder_distance * 0.7)
+        height = int(width * self.effect_image.shape[0] / self.effect_image.shape[1])
         
-        # Blend the images
-        for c in range(3):
-            frame[y1:y2, x1:x2, c] = \
-                frame[y1:y2, x1:x2, c] * (1 - alpha) + \
-                resized_darren[dy1:dy2, dx1:dx2, c] * alpha
+        # Position: to the side and above shoulder
+        cx = int(shoulder_x + offset_x)
+        cy = int(shoulder_y - shoulder_distance * 0.7)
         
-        return frame
-    
-    def apply_effect(self, frame):
-        """Apply Darren over shoulder effect to all detected people."""
-        if not self.is_enabled() or not self.darren_images:
-            return frame
+        x = cx - width // 2
+        y = cy - height // 2
         
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-        results = self.landmarker.detect(mp_image)
-        pose_landmarks_list = results.pose_landmarks
-
-        h, w, _ = frame.shape
-
-        # Process each detected person
-        for idx in range(len(pose_landmarks_list)):
-            pose_landmarks = pose_landmarks_list[idx]
-            
-            # Get a random Darren for this person
-            darren_img = self.get_random_darren()
-            if darren_img is None:
-                continue
-            
-            # Get shoulder positions
-            left_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER]
-            right_shoulder = pose_landmarks[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER]
-            
-            # Calculate shoulder positions in pixels
-            left_x = left_shoulder.x * w
-            left_y = left_shoulder.y * h
-            right_x = right_shoulder.x * w
-            right_y = right_shoulder.y * h
-            
-            # Calculate shoulder distance for sizing
-            shoulder_distance = math.hypot(right_x - left_x, right_y - left_y)
-            
-            # Calculate shoulder angle (tilt)
-            shoulder_angle = math.degrees(math.atan2(right_y - left_y, right_x - left_x))
-            
-            # Randomly pick left or right shoulder
-            use_left = random.choice([True, False])
-
-            shoulder_offset_multiplier = 1.25
-            
-            if use_left:
-                shoulder_x = left_x
-                shoulder_y = left_y
-                # Position behind the left shoulder (further to the left)
-                offset_x = -shoulder_distance * shoulder_offset_multiplier
-                # Slight tilt leaning in from left (positive = counter-clockwise)
-                darren_angle = 10
-            else:
-                shoulder_x = right_x
-                shoulder_y = right_y
-                # Position behind the right shoulder (further to the right)
-                offset_x = shoulder_distance * shoulder_offset_multiplier
-                # Slight tilt leaning in from right (negative = clockwise)
-                darren_angle = -10
-            
-            # Size Darren based on shoulder distance
-            darren_width = int(shoulder_distance * 0.7)
-            # Maintain aspect ratio
-            darren_height = int(darren_width * darren_img.shape[0] / darren_img.shape[1])
-            
-            # Position Darren peeking over the shoulder
-            # Place him higher up (above shoulder) and to the side
-            cx = int(shoulder_x + offset_x)
-            cy = int(shoulder_y - shoulder_distance * 0.7)  # Move up higher above shoulder
-            
-            x = cx - darren_width // 2
-            y = cy - darren_height // 2
-            
-            frame = self.overlay_darren(frame, darren_img, x, y, darren_width, darren_height, darren_angle)
-        
-        return frame
+        return x, y, width, height, angle
 
 
 class BackgroundReplacementEffect:

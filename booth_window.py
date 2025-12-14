@@ -19,7 +19,7 @@ class CowboyBooth(QMainWindow):
         
         # Add dev mode state
         self.dev_mode = False
-        self.live_effects_enabled = False  # Add state for live effects
+        self.live_effects_enabled = True  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
