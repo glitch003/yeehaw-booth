@@ -88,8 +88,8 @@ def resize_image_for_printing(image_path, printer_name):
                 font = ImageFont.load_default()
             
             # Text to add
-            text1 = "Law and Disorder"
-            text2 = "Big Stick 2025"
+            text1 = "Go all in"
+            text2 = "in 2026"
             
             # Calculate text positions for both strips
             text1_bbox = draw.textbbox((0, 0), text1, font=font)

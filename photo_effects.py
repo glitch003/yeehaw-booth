@@ -270,6 +270,23 @@ class ConfettiDiceEffect:
         self.confetti_particles = []
         self.dice_positions = []
         self.frame_count = 0
+        # Las Vegas themed colors - gold, silver, neon, vibrant
+        self.confetti_colors = [
+            (0, 215, 255),    # Gold (BGR)
+            (192, 192, 192),  # Silver
+            (0, 255, 255),    # Cyan
+            (255, 0, 255),    # Magenta
+            (255, 255, 0),    # Yellow
+            (0, 255, 0),      # Green
+            (255, 0, 0),      # Blue (BGR)
+            (0, 0, 255),      # Red (BGR)
+            (255, 165, 0),    # Orange
+            (255, 192, 203),  # Pink
+            (128, 0, 128),    # Purple
+            (255, 20, 147),   # Deep Pink
+            (0, 191, 255),    # Deep Sky Blue
+            (255, 215, 0),    # Gold (alternative)
+        ]
         self.initialize_effect()
     
     def is_enabled(self):
@@ -280,6 +297,33 @@ class ConfettiDiceEffect:
         # Create confetti particles (will be regenerated per frame for animation)
         self.confetti_particles = []
         self.dice_positions = []
+    
+    def draw_star(self, frame, center_x, center_y, size, color):
+        """Draw a star shape."""
+        points = []
+        outer_radius = size
+        inner_radius = size // 2
+        for i in range(10):
+            angle = i * np.pi / 5
+            if i % 2 == 0:
+                radius = outer_radius
+            else:
+                radius = inner_radius
+            x = int(center_x + radius * np.cos(angle))
+            y = int(center_y + radius * np.sin(angle))
+            points.append([x, y])
+        pts = np.array(points, np.int32)
+        cv2.fillPoly(frame, [pts], color)
+    
+    def draw_diamond(self, frame, center_x, center_y, size, color):
+        """Draw a diamond shape."""
+        points = np.array([
+            [center_x, center_y - size],
+            [center_x + size, center_y],
+            [center_x, center_y + size],
+            [center_x - size, center_y]
+        ], np.int32)
+        cv2.fillPoly(frame, [points], color)
     
     def draw_dice(self, frame, x, y, size):
         """Draw a dice at the specified position."""
@@ -318,49 +362,116 @@ class ConfettiDiceEffect:
         h, w = frame.shape[:2]
         self.frame_count += 1
         
-        # Generate confetti particles (regenerate some each frame for animation effect)
-        if self.frame_count % 5 == 0:  # Update every 5 frames
-            # Add some new confetti particles
-            for _ in range(10):
-                x = random.randint(0, w)
-                y = random.randint(0, h)
-                size = random.randint(5, 20)
-                color = random.choice([
-                    (0, 255, 255),    # Cyan
-                    (255, 0, 255),    # Magenta
-                    (255, 255, 0),    # Yellow
-                    (0, 255, 0),      # Green
-                    (255, 0, 0),      # Blue (BGR)
-                    (0, 0, 255),      # Red (BGR)
-                    (255, 165, 0),    # Orange
-                    (255, 192, 203)   # Pink
-                ])
-                shape = random.choice(['circle', 'square'])
+        # Generate confetti particles from top of screen (like falling from above)
+        if self.frame_count % 3 == 0:  # Add new particles more frequently
+            # Add new confetti particles from top
+            for _ in range(8):
+                x = random.randint(-50, w + 50)  # Start slightly off-screen
+                y = random.randint(-100, -20)  # Start above screen
+                size = random.randint(8, 25)
+                color = random.choice(self.confetti_colors)
+                shape = random.choice(['circle', 'square', 'diamond', 'star', 'rectangle'])
+                # Add physics properties
+                vx = random.uniform(-1.5, 1.5)  # Horizontal velocity
+                vy = random.uniform(2.0, 5.0)   # Vertical velocity (falling)
+                rotation = random.uniform(0, 360)  # Rotation angle
+                rotation_speed = random.uniform(-5, 5)  # Rotation speed
+                life = random.randint(100, 200)  # Frames to live
                 self.confetti_particles.append({
-                    'x': x, 'y': y, 'size': size, 'color': color, 'shape': shape
+                    'x': x, 'y': y, 'size': size, 'color': color, 'shape': shape,
+                    'vx': vx, 'vy': vy, 'rotation': rotation, 'rotation_speed': rotation_speed,
+                    'life': life, 'max_life': life
                 })
-            
-            # Keep only recent particles (limit to 100)
-            if len(self.confetti_particles) > 100:
-                self.confetti_particles = self.confetti_particles[-100:]
         
-        # Draw confetti particles
-        for particle in self.confetti_particles:
-            x, y = particle['x'], particle['y']
-            # Animate confetti falling
-            particle['y'] = (particle['y'] + random.randint(2, 5)) % (h + 50)
-            particle['x'] = (particle['x'] + random.randint(-2, 2)) % w
+        # Update and draw confetti particles
+        particles_to_remove = []
+        for i, particle in enumerate(self.confetti_particles):
+            # Update physics
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['rotation'] += particle['rotation_speed']
+            particle['life'] -= 1
+            
+            # Add slight gravity effect (accelerate downward)
+            particle['vy'] += 0.1
+            
+            # Add slight air resistance to horizontal movement
+            particle['vx'] *= 0.99
+            
+            # Remove if off screen or life expired
+            if (particle['y'] > h + 50 or particle['x'] < -100 or 
+                particle['x'] > w + 100 or particle['life'] <= 0):
+                particles_to_remove.append(i)
+                continue
+            
+            # Calculate alpha based on remaining life (fade out)
+            alpha = min(1.0, particle['life'] / (particle['max_life'] * 0.3))
+            
+            # Draw particle based on shape
+            x, y = int(particle['x']), int(particle['y'])
+            size = particle['size']
+            color = particle['color']
+            
+            # Apply alpha blending
+            if alpha < 1.0:
+                # Create a temporary overlay for alpha blending
+                overlay = frame.copy()
+                base_color = tuple(int(c * alpha) for c in color)
+            else:
+                base_color = color
             
             if particle['shape'] == 'circle':
-                cv2.circle(frame, (int(particle['x']), int(particle['y'])), 
-                         particle['size'], particle['color'], -1)
-            else:
-                cv2.rectangle(frame, 
-                            (int(particle['x'] - particle['size']//2), 
-                             int(particle['y'] - particle['size']//2)),
-                            (int(particle['x'] + particle['size']//2), 
-                             int(particle['y'] + particle['size']//2)),
-                            particle['color'], -1)
+                cv2.circle(frame, (x, y), size, base_color, -1)
+                # Add highlight for 3D effect
+                if size > 10:
+                    highlight_color = tuple(min(255, c + 50) for c in base_color)
+                    cv2.circle(frame, (x - size//4, y - size//4), size//3, highlight_color, -1)
+            elif particle['shape'] == 'square':
+                # Draw rotated square
+                half_size = size // 2
+                angle_rad = np.radians(particle['rotation'])
+                cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+                points = np.array([
+                    [x + int(half_size * (cos_a - sin_a)), y + int(half_size * (sin_a + cos_a))],
+                    [x + int(half_size * (-cos_a - sin_a)), y + int(half_size * (-sin_a + cos_a))],
+                    [x + int(half_size * (-cos_a + sin_a)), y + int(half_size * (-sin_a - cos_a))],
+                    [x + int(half_size * (cos_a + sin_a)), y + int(half_size * (sin_a - cos_a))]
+                ], np.int32)
+                cv2.fillPoly(frame, [points], base_color)
+                # Add border for definition
+                cv2.polylines(frame, [points], True, tuple(max(0, c - 30) for c in base_color), 1)
+            elif particle['shape'] == 'diamond':
+                self.draw_diamond(frame, x, y, size, base_color)
+                # Add highlight
+                if size > 10:
+                    highlight_color = tuple(min(255, c + 40) for c in base_color)
+                    self.draw_diamond(frame, x - size//4, y - size//4, size//3, highlight_color)
+            elif particle['shape'] == 'star':
+                self.draw_star(frame, x, y, size, base_color)
+                # Add sparkle effect
+                if size > 12:
+                    sparkle_color = (255, 255, 255)  # White sparkle
+                    cv2.circle(frame, (x, y), 2, sparkle_color, -1)
+            elif particle['shape'] == 'rectangle':
+                # Draw rotated rectangle
+                half_w, half_h = size, size // 2
+                angle_rad = np.radians(particle['rotation'])
+                cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+                points = np.array([
+                    [x + int(half_w * cos_a - half_h * sin_a), y + int(half_w * sin_a + half_h * cos_a)],
+                    [x + int(-half_w * cos_a - half_h * sin_a), y + int(-half_w * sin_a + half_h * cos_a)],
+                    [x + int(-half_w * cos_a + half_h * sin_a), y + int(-half_w * sin_a - half_h * cos_a)],
+                    [x + int(half_w * cos_a + half_h * sin_a), y + int(half_w * sin_a - half_h * cos_a)]
+                ], np.int32)
+                cv2.fillPoly(frame, [points], base_color)
+        
+        # Remove dead particles (in reverse order to maintain indices)
+        for i in reversed(particles_to_remove):
+            self.confetti_particles.pop(i)
+        
+        # Limit total particles for performance
+        if len(self.confetti_particles) > 150:
+            self.confetti_particles = self.confetti_particles[-150:]
         
         # Generate dice positions (less frequently)
         if self.frame_count % 30 == 0:  # Update every 30 frames
