@@ -9,7 +9,7 @@ from photo_capture_thread import PhotoCaptureThread
 from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, DarrenOverShoulderEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
-VIDEO_SOURCE_INDEX = 0
+VIDEO_SOURCE_INDEX = 1
 
 class CowboyBooth(QMainWindow):
     def __init__(self):
