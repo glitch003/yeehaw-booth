@@ -173,6 +173,11 @@ class CowboyBooth(QMainWindow):
         if not os.path.exists(self.photos_dir):
             os.makedirs(self.photos_dir)
 
+        # Create originals directory for full-resolution photos without effects
+        self.originals_dir = "originals"
+        if not os.path.exists(self.originals_dir):
+            os.makedirs(self.originals_dir)
+
     def toggle_effect(self, effect_name):
         """Toggle an effect on/off and update the button state."""
         EFFECT_CONFIG[effect_name] = not EFFECT_CONFIG[effect_name]
@@ -204,6 +209,11 @@ class CowboyBooth(QMainWindow):
     def capture_photo(self):
         ret, frame = self.cap.read()
         if ret:
+            # Save the original full-resolution photo without effects
+            original_filename = f"original_{self.photo_set_timestamp}_{self.photo_count + 1}.jpg"
+            original_path = os.path.join(self.originals_dir, original_filename)
+            cv2.imwrite(original_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+            
             # Apply all effects to the saved photo
             frame_with_effects = frame.copy()
             frame_with_effects = self.background_effect.apply_effect(frame_with_effects)
