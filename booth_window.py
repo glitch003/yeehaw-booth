@@ -6,20 +6,20 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidg
 from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from PyQt6.QtGui import QImage, QPixmap, QFont, QKeyEvent, QMouseEvent
 from photo_capture_thread import PhotoCaptureThread
-from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, EFFECT_CONFIG
+from photo_effects import MustacheEffect, BoloTieEffect, CowboyHatEffect, BackgroundReplacementEffect, ConfettiDiceEffect, EFFECT_CONFIG
 from printer import DNPPrinter
 
-VIDEO_SOURCE_INDEX = 1
+VIDEO_SOURCE_INDEX = 0
 
 class CowboyBooth(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Yeehaw Booth")
+        self.setWindowTitle("Las Vegas New Year's Photo Booth 2025")
         self.showFullScreen()
         
         # Add dev mode state
         self.dev_mode = False
-        self.live_effects_enabled = False  # Add state for live effects
+        self.live_effects_enabled = True  # Add state for live effects
 
         # Create central widget and layout
         central_widget = QWidget()
@@ -109,6 +109,12 @@ class CowboyBooth(QMainWindow):
         self.background_button.setChecked(EFFECT_CONFIG['background_enabled'])
         button_layout.addWidget(self.background_button)
 
+        self.confetti_dice_button = QPushButton("Confetti & Dice", self)
+        self.confetti_dice_button.clicked.connect(lambda: self.toggle_effect('confetti_dice_enabled'))
+        self.confetti_dice_button.setCheckable(True)
+        self.confetti_dice_button.setChecked(EFFECT_CONFIG['confetti_dice_enabled'])
+        button_layout.addWidget(self.confetti_dice_button)
+
         # Add live effects toggle button
         self.live_effects_button = QPushButton("Live Effects", self)
         self.live_effects_button.clicked.connect(self.toggle_live_effects)
@@ -124,6 +130,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.hide()
         self.cowboy_hat_button.hide()
         self.background_button.hide()
+        self.confetti_dice_button.hide()
         self.live_effects_button.hide()
 
         # Initialize effects
@@ -131,6 +138,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_effect = BoloTieEffect()
         self.cowboy_hat_effect = CowboyHatEffect()
         self.background_effect = BackgroundReplacementEffect()
+        self.confetti_dice_effect = ConfettiDiceEffect()
 
         # Initialize printer
         self.printer = DNPPrinter()
@@ -202,6 +210,7 @@ class CowboyBooth(QMainWindow):
             frame_with_effects = self.mustache_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.bolo_tie_effect.apply_effect(frame_with_effects)
             frame_with_effects = self.cowboy_hat_effect.apply_effect(frame_with_effects)
+            frame_with_effects = self.confetti_dice_effect.apply_effect(frame_with_effects)
             self.captured_frames.append(frame_with_effects)
             self.photo_count += 1
             # Start flash, but do NOT start the next countdown here
@@ -295,6 +304,9 @@ class CowboyBooth(QMainWindow):
             frame = self.mustache_effect.apply_effect(frame)
             frame = self.bolo_tie_effect.apply_effect(frame)
             frame = self.cowboy_hat_effect.apply_effect(frame)
+        
+        # Always apply confetti/dice overlay if enabled (it's a visual overlay, not a body effect)
+        frame = self.confetti_dice_effect.apply_effect(frame)
 
         # Display countdown and photo count on the frame
         if self.countdown > 0:
@@ -323,7 +335,7 @@ class CowboyBooth(QMainWindow):
         elif not self.flash_active and self.photo_count == 0 and not self.countdown_timer.isActive() and not self.loading_widget.isVisible():
             # Display tap instruction when idle and loading indicator is not visible
             # First draw the title
-            title_text = "Rootin Tootin Photo Booth"
+            title_text = "Las Vegas New Year's 2025"
             title_font_scale = 2.5
             title_thickness = 4
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -441,6 +453,7 @@ class CowboyBooth(QMainWindow):
         self.bolo_tie_button.setVisible(self.dev_mode)
         self.cowboy_hat_button.setVisible(self.dev_mode)
         self.background_button.setVisible(self.dev_mode)
+        self.confetti_dice_button.setVisible(self.dev_mode)
         self.live_effects_button.setVisible(self.dev_mode)
 
     def toggle_live_effects(self):

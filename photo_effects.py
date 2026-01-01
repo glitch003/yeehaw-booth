@@ -3,15 +3,17 @@ import mediapipe as mp
 import numpy as np
 from abc import ABC, abstractmethod
 import math
+import random
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 # Effect configuration
 EFFECT_CONFIG = {
-    'mustache_enabled': True,
-    'bolo_tie_enabled': True,
-    'cowboy_hat_enabled': True,
-    'background_enabled': True
+    'mustache_enabled': False,
+    'bolo_tie_enabled': False,
+    'cowboy_hat_enabled': False,
+    'background_enabled': True,
+    'confetti_dice_enabled': True
 }
 
 class BodyEffect(ABC):
@@ -259,4 +261,149 @@ class BackgroundReplacementEffect:
         # Combine the frame and background using the mask
         output = np.where(mask_3d, frame, background)
         
-        return output.astype(np.uint8) 
+        return output.astype(np.uint8)
+
+class ConfettiDiceEffect:
+    """Overlay effect for Las Vegas/New Year's theme with confetti and dice."""
+    
+    def __init__(self):
+        self.confetti_particles = []
+        self.dice_positions = []
+        self.frame_count = 0
+        self.initialize_effect()
+    
+    def is_enabled(self):
+        return EFFECT_CONFIG['confetti_dice_enabled']
+    
+    def initialize_effect(self):
+        """Initialize confetti particles and dice positions."""
+        # Create confetti particles (will be regenerated per frame for animation)
+        self.confetti_particles = []
+        self.dice_positions = []
+    
+    def draw_dice(self, frame, x, y, size):
+        """Draw a dice at the specified position."""
+        # Dice colors: white background with black dots
+        dice_color = (255, 255, 255)  # White
+        dot_color = (0, 0, 0)  # Black
+        border_color = (100, 100, 100)  # Gray border
+        
+        # Draw dice square with rounded corners effect
+        cv2.rectangle(frame, (x, y), (x + size, y + size), border_color, 2)
+        cv2.rectangle(frame, (x + 2, y + 2), (x + size - 2, y + size - 2), dice_color, -1)
+        
+        # Draw random number of dots (1-6)
+        dot_count = random.randint(1, 6)
+        dot_radius = max(3, size // 12)
+        spacing = size // 4
+        
+        # Dot patterns for different numbers
+        patterns = {
+            1: [(size // 2, size // 2)],
+            2: [(spacing, spacing), (size - spacing, size - spacing)],
+            3: [(spacing, spacing), (size // 2, size // 2), (size - spacing, size - spacing)],
+            4: [(spacing, spacing), (size - spacing, spacing), (spacing, size - spacing), (size - spacing, size - spacing)],
+            5: [(spacing, spacing), (size - spacing, spacing), (size // 2, size // 2), (spacing, size - spacing), (size - spacing, size - spacing)],
+            6: [(spacing, spacing), (spacing, size // 2), (spacing, size - spacing), (size - spacing, spacing), (size - spacing, size // 2), (size - spacing, size - spacing)]
+        }
+        
+        for dot_pos in patterns[dot_count]:
+            cv2.circle(frame, (x + dot_pos[0], y + dot_pos[1]), dot_radius, dot_color, -1)
+    
+    def apply_effect(self, frame):
+        """Apply confetti and dice overlay to the frame."""
+        if not self.is_enabled():
+            return frame
+        
+        h, w = frame.shape[:2]
+        self.frame_count += 1
+        
+        # Generate confetti particles (regenerate some each frame for animation effect)
+        if self.frame_count % 5 == 0:  # Update every 5 frames
+            # Add some new confetti particles
+            for _ in range(10):
+                x = random.randint(0, w)
+                y = random.randint(0, h)
+                size = random.randint(5, 20)
+                color = random.choice([
+                    (0, 255, 255),    # Cyan
+                    (255, 0, 255),    # Magenta
+                    (255, 255, 0),    # Yellow
+                    (0, 255, 0),      # Green
+                    (255, 0, 0),      # Blue (BGR)
+                    (0, 0, 255),      # Red (BGR)
+                    (255, 165, 0),    # Orange
+                    (255, 192, 203)   # Pink
+                ])
+                shape = random.choice(['circle', 'square'])
+                self.confetti_particles.append({
+                    'x': x, 'y': y, 'size': size, 'color': color, 'shape': shape
+                })
+            
+            # Keep only recent particles (limit to 100)
+            if len(self.confetti_particles) > 100:
+                self.confetti_particles = self.confetti_particles[-100:]
+        
+        # Draw confetti particles
+        for particle in self.confetti_particles:
+            x, y = particle['x'], particle['y']
+            # Animate confetti falling
+            particle['y'] = (particle['y'] + random.randint(2, 5)) % (h + 50)
+            particle['x'] = (particle['x'] + random.randint(-2, 2)) % w
+            
+            if particle['shape'] == 'circle':
+                cv2.circle(frame, (int(particle['x']), int(particle['y'])), 
+                         particle['size'], particle['color'], -1)
+            else:
+                cv2.rectangle(frame, 
+                            (int(particle['x'] - particle['size']//2), 
+                             int(particle['y'] - particle['size']//2)),
+                            (int(particle['x'] + particle['size']//2), 
+                             int(particle['y'] + particle['size']//2)),
+                            particle['color'], -1)
+        
+        # Generate dice positions (less frequently)
+        if self.frame_count % 30 == 0:  # Update every 30 frames
+            self.dice_positions = []
+            num_dice = random.randint(3, 8)
+            for _ in range(num_dice):
+                x = random.randint(0, w - 80)
+                y = random.randint(0, h - 80)
+                size = random.randint(40, 70)
+                angle = random.randint(0, 360)
+                self.dice_positions.append({'x': x, 'y': y, 'size': size, 'angle': angle})
+        
+        # Draw dice
+        for dice in self.dice_positions:
+            # Create a temporary image for the dice to allow rotation
+            dice_img = np.zeros((dice['size'] + 20, dice['size'] + 20, 3), dtype=np.uint8)
+            self.draw_dice(dice_img, 10, 10, dice['size'])
+            
+            # Rotate the dice
+            center = (dice['size'] // 2 + 10, dice['size'] // 2 + 10)
+            rot_mat = cv2.getRotationMatrix2D(center, dice['angle'], 1.0)
+            rotated_dice = cv2.warpAffine(dice_img, rot_mat, 
+                                        (dice['size'] + 20, dice['size'] + 20),
+                                        flags=cv2.INTER_LINEAR,
+                                        borderMode=cv2.BORDER_CONSTANT,
+                                        borderValue=(0, 0, 0))
+            
+            # Overlay rotated dice on frame
+            x, y = dice['x'], dice['y']
+            x_end = min(x + dice['size'] + 20, w)
+            y_end = min(y + dice['size'] + 20, h)
+            dice_w = x_end - x
+            dice_h = y_end - y
+            
+            if dice_w > 0 and dice_h > 0:
+                dice_roi = rotated_dice[:dice_h, :dice_w]
+                frame_roi = frame[y:y_end, x:x_end]
+                
+                # Create mask for non-black pixels (dice is white/colored, not black)
+                mask = (dice_roi.sum(axis=2) > 50).astype(np.uint8)  # Threshold to ignore black background
+                mask_3d = np.stack([mask] * 3, axis=-1)
+                
+                # Blend dice onto frame
+                frame[y:y_end, x:x_end] = np.where(mask_3d, dice_roi, frame_roi)
+        
+        return frame 
