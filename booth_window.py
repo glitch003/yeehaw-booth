@@ -304,9 +304,7 @@ class CowboyBooth(QMainWindow):
             frame = self.mustache_effect.apply_effect(frame)
             frame = self.bolo_tie_effect.apply_effect(frame)
             frame = self.cowboy_hat_effect.apply_effect(frame)
-        
-        # Always apply confetti/dice overlay if enabled (it's a visual overlay, not a body effect)
-        frame = self.confetti_dice_effect.apply_effect(frame)
+            frame = self.confetti_dice_effect.apply_effect(frame)
 
         # Display countdown and photo count on the frame
         if self.countdown > 0:

@@ -360,65 +360,38 @@ class ConfettiDiceEffect:
             return frame
         
         h, w = frame.shape[:2]
-        self.frame_count += 1
         
-        # Generate confetti particles from top of screen (like falling from above)
-        if self.frame_count % 3 == 0:  # Add new particles more frequently
-            # Add new confetti particles from top
-            for _ in range(8):
-                x = random.randint(-50, w + 50)  # Start slightly off-screen
-                y = random.randint(-100, -20)  # Start above screen
-                size = random.randint(8, 25)
-                color = random.choice(self.confetti_colors)
-                shape = random.choice(['circle', 'square', 'diamond', 'star', 'rectangle'])
-                # Add physics properties
-                vx = random.uniform(-1.5, 1.5)  # Horizontal velocity
-                vy = random.uniform(2.0, 5.0)   # Vertical velocity (falling)
-                rotation = random.uniform(0, 360)  # Rotation angle
-                rotation_speed = random.uniform(-5, 5)  # Rotation speed
-                life = random.randint(100, 200)  # Frames to live
-                self.confetti_particles.append({
-                    'x': x, 'y': y, 'size': size, 'color': color, 'shape': shape,
-                    'vx': vx, 'vy': vy, 'rotation': rotation, 'rotation_speed': rotation_speed,
-                    'life': life, 'max_life': life
-                })
+        # Generate fresh particles distributed across the entire frame
+        self.confetti_particles = []
+        for _ in range(80):  # Generate particles for the frame
+            x = random.randint(0, w)
+            y = random.randint(0, h)  # Distribute throughout the frame
+            size = random.randint(8, 25)
+            color = random.choice(self.confetti_colors)
+            shape = random.choice(['circle', 'square', 'diamond', 'star', 'rectangle'])
+            rotation = random.uniform(0, 360)
+            self.confetti_particles.append({
+                'x': x, 'y': y, 'size': size, 'color': color, 'shape': shape,
+                'rotation': rotation
+            })
         
-        # Update and draw confetti particles
-        particles_to_remove = []
-        for i, particle in enumerate(self.confetti_particles):
-            # Update physics
-            particle['x'] += particle['vx']
-            particle['y'] += particle['vy']
-            particle['rotation'] += particle['rotation_speed']
-            particle['life'] -= 1
-            
-            # Add slight gravity effect (accelerate downward)
-            particle['vy'] += 0.1
-            
-            # Add slight air resistance to horizontal movement
-            particle['vx'] *= 0.99
-            
-            # Remove if off screen or life expired
-            if (particle['y'] > h + 50 or particle['x'] < -100 or 
-                particle['x'] > w + 100 or particle['life'] <= 0):
-                particles_to_remove.append(i)
-                continue
-            
-            # Calculate alpha based on remaining life (fade out)
-            alpha = min(1.0, particle['life'] / (particle['max_life'] * 0.3))
-            
+        # Generate dice positions
+        self.dice_positions = []
+        num_dice = random.randint(5, 10)
+        for _ in range(num_dice):
+            x = random.randint(0, w - 80)
+            y = random.randint(0, h - 80)
+            size = random.randint(40, 70)
+            angle = random.randint(0, 360)
+            self.dice_positions.append({'x': x, 'y': y, 'size': size, 'angle': angle})
+        
+        # Draw confetti particles
+        for particle in self.confetti_particles:
             # Draw particle based on shape
             x, y = int(particle['x']), int(particle['y'])
             size = particle['size']
             color = particle['color']
-            
-            # Apply alpha blending
-            if alpha < 1.0:
-                # Create a temporary overlay for alpha blending
-                overlay = frame.copy()
-                base_color = tuple(int(c * alpha) for c in color)
-            else:
-                base_color = color
+            base_color = color
             
             if particle['shape'] == 'circle':
                 cv2.circle(frame, (x, y), size, base_color, -1)
@@ -464,25 +437,6 @@ class ConfettiDiceEffect:
                     [x + int(half_w * cos_a + half_h * sin_a), y + int(half_w * sin_a - half_h * cos_a)]
                 ], np.int32)
                 cv2.fillPoly(frame, [points], base_color)
-        
-        # Remove dead particles (in reverse order to maintain indices)
-        for i in reversed(particles_to_remove):
-            self.confetti_particles.pop(i)
-        
-        # Limit total particles for performance
-        if len(self.confetti_particles) > 150:
-            self.confetti_particles = self.confetti_particles[-150:]
-        
-        # Generate dice positions (less frequently)
-        if self.frame_count % 30 == 0:  # Update every 30 frames
-            self.dice_positions = []
-            num_dice = random.randint(3, 8)
-            for _ in range(num_dice):
-                x = random.randint(0, w - 80)
-                y = random.randint(0, h - 80)
-                size = random.randint(40, 70)
-                angle = random.randint(0, 360)
-                self.dice_positions.append({'x': x, 'y': y, 'size': size, 'angle': angle})
         
         # Draw dice
         for dice in self.dice_positions:
